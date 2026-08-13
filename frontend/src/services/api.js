@@ -21,6 +21,8 @@ export const registerAPI = (data) => API.post('/auth/register', data);
 export const fetchEnvelopes = () => API.get('/envelopes');
 export const addEnvelope = (data) => API.post('/envelopes', data);
 export const removeEnvelope = (id) => API.delete(`/envelopes/${id}`);
+export const postFill = (data) => api.post('/transactions/fill', data);
+export const updateEnvelope = (id, data) => API.put(`/envelopes/${id}`, data);
 
 export const fetchTransactions = (period) => API.get(`/transactions?period=${period}`);
 export const addTransaction = (data) => API.post('/transactions', data);
