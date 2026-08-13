@@ -359,13 +359,24 @@ const Transaction = ({
                             <p><span className="text-slate-300 font-medium">Created At (System):</span> {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "N/A"}</p>
 
                             {/* Audit Log / Amount Modification History */}
-                            {tx.updateLog && (
-                              <div className="bg-slate-950 p-2 rounded border border-slate-800 space-y-1">
-                                <p className="text-amber-400 font-medium">Amount Modified:</p>
-                                <p>Before: ${tx.updateLog.before} → After: ${tx.updateLog.after} (Diff: ${tx.updateLog.diff >= 0 ? `+${tx.updateLog.diff}` : tx.updateLog.diff})</p>
-                                <p><span className="text-slate-300">Reason:</span> {tx.updateLog.reason}</p>
-                              </div>
-                            )}
+                            {/* Audit Log / Amount Modification History */}
+{tx.updateLogs && tx.updateLogs.length > 0 && (
+  <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
+    <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
+    {tx.updateLogs.map((log, index) => (
+      <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
+        <div className="flex justify-between items-center text-slate-300">
+          <span>Update #{index + 1}: ${log.before} → ${log.after}</span>
+          <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+            {log.diff >= 0 ? `+${log.diff}` : log.diff}
+          </span>
+        </div>
+        <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
+        <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+      </div>
+    ))}
+  </div>
+)}
 
                             {/* Edit Section */}
                             {editingTxId === tx._id ? (

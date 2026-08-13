@@ -15,7 +15,7 @@ const transactionSchema = new mongoose.Schema({
   type: { type: String, enum: ['income', 'expense', 'fill'], required: true },
   envelopeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Envelope' }, // Null for income
   date: { type: Date, default: Date.now },
-  updateLog: updateLogSchema // Added to track amount edits, reasons, and differences
+  updateLogs: [updateLogSchema] // Changed to an array to store multiple updates
 }, { timestamps: true });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

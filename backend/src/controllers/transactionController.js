@@ -61,12 +61,19 @@ const updateTransaction = async (req, res) => {
     transaction.envelopeId = transaction.type === 'expense' ? (req.body.envelopeId || transaction.envelopeId) : undefined;
     transaction.date = req.body.date || transaction.date;
     
-    // Capture the updateLog sent from the frontend edit form
+    // Push the new update log into the array if provided
     if (req.body.updateLog) {
-      transaction.updateLog = req.body.updateLog;
+      if (!transaction.updateLogs) {
+        transaction.updateLogs = [];
+      }
+      transaction.updateLogs.push(req.body.updateLog);
     }
 
-    const updated = await transaction.save();
+    await transaction.save();
+
+    // Populate the envelope before sending back to frontend
+    const updated = await Transaction.findById(transaction._id).populate('envelopeId', 'name');
+
     res.status(200).json(updated);
   } catch (error) {
     res.status(400).json({ message: error.message });
