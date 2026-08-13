@@ -3,6 +3,7 @@ import Envelope from "./Envelopes/Envelope";
 import Transaction from "./Transactions/Transaction";
 
 const Maincontent = ({
+  handleUpdateTransaction,
   handleCreateEnvelope,
   envName,
   setEnvName,
@@ -45,6 +46,7 @@ const Maincontent = ({
 
         {/* Transactions Section */}
         <Transaction
+          handleUpdateTransaction={handleUpdateTransaction}
           handleCreateTransaction={handleCreateTransaction}
           txTitle={txTitle}
           setTxTitle={setTxTitle}

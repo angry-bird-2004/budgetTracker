@@ -2,6 +2,7 @@ import React, { useState } from "react";
 
 const Transaction = ({
   handleCreateTransaction,
+  handleUpdateTransaction, // Added prop for handling the edit/update submission
   txTitle,
   setTxTitle,
   txAmount,
@@ -30,12 +31,64 @@ const Transaction = ({
   // State to track which envelope dropdown is open (Envelope ID or "income" or "general")
   const [openDropdown, setOpenDropdown] = useState("income");
 
+  // State to track which transaction is currently being edited
+  const [editingTxId, setEditingTxId] = useState(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editReason, setEditReason] = useState("");
+
   const toggleExpand = (id) => {
     setExpandedTxId(expandedTxId === id ? null : id);
+    // Close edit mode if collapsing/switching
+    if (expandedTxId !== id) {
+      setEditingTxId(null);
+    }
   };
 
   const toggleDropdown = (key) => {
     setOpenDropdown(openDropdown === key ? null : key);
+  };
+
+  const startEditing = (tx, e) => {
+    e.stopPropagation(); // Prevent toggling the expand/collapse container
+    setEditingTxId(tx._id);
+    setEditAmount(tx.amount);
+    setEditReason("");
+  };
+
+  const cancelEditing = (e) => {
+    e.stopPropagation();
+    setEditingTxId(null);
+    setEditAmount("");
+    setEditReason("");
+  };
+
+  const submitEdit = (tx, e) => {
+    e.stopPropagation();
+    if (!editAmount || !editReason) {
+      alert("Please enter the new amount and a reason for the change.");
+      return;
+    }
+
+    const oldAmount = parseFloat(tx.amount);
+    const newAmountNum = parseFloat(editAmount);
+    const diff = newAmountNum - oldAmount;
+
+    const updateData = {
+      amount: newAmountNum,
+      updateLog: {
+        before: oldAmount,
+        after: newAmountNum,
+        diff: diff,
+        reason: editReason,
+        timestamp: new Date(),
+      },
+    };
+
+    if (handleUpdateTransaction) {
+      handleUpdateTransaction(tx._id, updateData);
+    }
+
+    setEditingTxId(null);
   };
 
   // Filter transactions
@@ -298,12 +351,66 @@ const Transaction = ({
                         </div>
 
                         {expandedTxId === tx._id ? (
-                          <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-1">
+                          <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
                             <p><span className="text-slate-300 font-medium">Envelope:</span> {env.name}</p>
                             {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
                             {tx.taxAmount && <p><span className="text-slate-300 font-medium">Tax:</span> ${tx.taxAmount} {tx.taxPercentage ? `(${tx.taxPercentage}%)` : ""}</p>}
                             <p><span className="text-slate-300 font-medium">Transaction Date/Time (Field):</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
                             <p><span className="text-slate-300 font-medium">Created At (System):</span> {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "N/A"}</p>
+
+                            {/* Audit Log / Amount Modification History */}
+                            {tx.updateLog && (
+                              <div className="bg-slate-950 p-2 rounded border border-slate-800 space-y-1">
+                                <p className="text-amber-400 font-medium">Amount Modified:</p>
+                                <p>Before: ${tx.updateLog.before} → After: ${tx.updateLog.after} (Diff: ${tx.updateLog.diff >= 0 ? `+${tx.updateLog.diff}` : tx.updateLog.diff})</p>
+                                <p><span className="text-slate-300">Reason:</span> {tx.updateLog.reason}</p>
+                              </div>
+                            )}
+
+                            {/* Edit Section */}
+                            {editingTxId === tx._id ? (
+                              <div className="bg-slate-950 p-3 rounded border border-slate-700 space-y-2" onClick={(e) => e.stopPropagation()}>
+                                <p className="font-medium text-slate-200">Change Expense Amount</p>
+                                <input
+                                  type="number"
+                                  placeholder="New Amount ($)"
+                                  value={editAmount}
+                                  onChange={(e) => setEditAmount(e.target.value)}
+                                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Reason for changing amount"
+                                  value={editReason}
+                                  onChange={(e) => setEditReason(e.target.value)}
+                                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                                />
+                                <div className="flex gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => submitEdit(tx, e)}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditing}
+                                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => startEditing(tx, e)}
+                                className="text-sky-400 hover:text-sky-300 text-xs font-medium underline block pt-1"
+                              >
+                                Edit Amount
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <p className="text-xs text-slate-400">
@@ -368,12 +475,66 @@ const Transaction = ({
                     </div>
 
                     {expandedTxId === tx._id ? (
-                      <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-1">
+                      <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
                         <p><span className="text-slate-300 font-medium">Envelope:</span> General</p>
                         {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
                         {tx.taxAmount && <p><span className="text-slate-300 font-medium">Tax:</span> ${tx.taxAmount} {tx.taxPercentage ? `(${tx.taxPercentage}%)` : ""}</p>}
                         <p><span className="text-slate-300 font-medium">Transaction Date/Time (Field):</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
                         <p><span className="text-slate-300 font-medium">Created At (System):</span> {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "N/A"}</p>
+
+                        {/* Audit Log / Amount Modification History */}
+                        {tx.updateLog && (
+                          <div className="bg-slate-950 p-2 rounded border border-slate-800 space-y-1">
+                            <p className="text-amber-400 font-medium">Amount Modified:</p>
+                            <p>Before: ${tx.updateLog.before} → After: ${tx.updateLog.after} (Diff: ${tx.updateLog.diff >= 0 ? `+${tx.updateLog.diff}` : tx.updateLog.diff})</p>
+                            <p><span className="text-slate-300">Reason:</span> {tx.updateLog.reason}</p>
+                          </div>
+                        )}
+
+                        {/* Edit Section */}
+                        {editingTxId === tx._id ? (
+                          <div className="bg-slate-950 p-3 rounded border border-slate-700 space-y-2" onClick={(e) => e.stopPropagation()}>
+                            <p className="font-medium text-slate-200">Change Expense Amount</p>
+                            <input
+                              type="number"
+                              placeholder="New Amount ($)"
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Reason for changing amount"
+                              value={editReason}
+                              onChange={(e) => setEditReason(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                            />
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={(e) => submitEdit(tx, e)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEditing}
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => startEditing(tx, e)}
+                            className="text-sky-400 hover:text-sky-300 text-xs font-medium underline block pt-1"
+                          >
+                            Edit Amount
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <p className="text-xs text-slate-400">Click to view details</p>

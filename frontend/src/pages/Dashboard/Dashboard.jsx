@@ -7,6 +7,7 @@ import {
   fetchTransactions,
   addTransaction,
   removeTransaction,
+  updateTransaction,
 } from "../../services/api";
 import Analysis from "./Analysis/Analysis";
 import Header from "./Header/Header";
@@ -97,6 +98,18 @@ const Dashboard = () => {
     loadData();
   };
 
+  // In your Parent Component (e.g., Dashboard.jsx or App.jsx)
+
+const handleUpdateTransaction = async (id, updateData) => {
+  try {
+    const res = await updateTransaction(id, updateData);
+    setTransactions((prev) => prev.map((tx) => (tx._id === id ? res.data : tx)));
+  } catch (error) {
+    console.error("Failed to update transaction:", error);
+  }
+};
+
+
   const handleDeleteTransaction = async (id) => {
     await removeTransaction(id);
     loadData();
@@ -122,6 +135,7 @@ const Dashboard = () => {
 
         {/* Grid for Envelopes and Transactions Setup */}
         <Maincontent
+          handleUpdateTransaction={handleUpdateTransaction}
           handleCreateEnvelope={handleCreateEnvelope}
           envName={envName}
           setEnvName={setEnvName}

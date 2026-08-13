@@ -60,6 +60,11 @@ const updateTransaction = async (req, res) => {
     transaction.type = req.body.type || transaction.type;
     transaction.envelopeId = transaction.type === 'expense' ? (req.body.envelopeId || transaction.envelopeId) : undefined;
     transaction.date = req.body.date || transaction.date;
+    
+    // Capture the updateLog sent from the frontend edit form
+    if (req.body.updateLog) {
+      transaction.updateLog = req.body.updateLog;
+    }
 
     const updated = await transaction.save();
     res.status(200).json(updated);

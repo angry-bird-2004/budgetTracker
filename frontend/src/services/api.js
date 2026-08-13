@@ -24,6 +24,8 @@ export const removeEnvelope = (id) => API.delete(`/envelopes/${id}`);
 export const postFill = (data) => api.post('/transactions/fill', data);
 export const updateEnvelope = (id, data) => API.put(`/envelopes/${id}`, data);
 
+export const updateTransaction = (id, data) => API.put(`/transactions/${id}`, data);
+
 export const fetchTransactions = (period) => API.get(`/transactions?period=${period}`);
 export const addTransaction = (data) => API.post('/transactions', data);
 export const removeTransaction = (id) => API.delete(`/transactions/${id}`);
