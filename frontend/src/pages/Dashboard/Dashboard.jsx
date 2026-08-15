@@ -30,6 +30,13 @@ const Dashboard = () => {
   const [txType, setTxType] = useState("expense");
   const [txEnvelope, setTxEnvelope] = useState("");
 
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [purpose, setPurpose] = useState("");
+  const [txDate, setTxDate] = useState("");
+  const [taxPercentage, setTaxPercentage] = useState("");
+  const [taxAmount, setTaxAmount] = useState("");
+  const [taxApplication, setTaxApplication] = useState("exclusive");
+
   const loadData = async () => {
     try {
       const envRes = await fetchEnvelopes();
@@ -83,21 +90,61 @@ const Dashboard = () => {
     loadData();
   };
 
-  const handleCreateTransaction = async (e) => {
+ const handleCreateTransaction = async (e) => {
     e.preventDefault();
-    if (!txTitle || !txAmount) return;
-    await addTransaction({
-      title: txTitle,
-      amount: Number(txAmount),
-      type: txType,
-      envelopeId: txType === "expense" ? txEnvelope : undefined,
-    });
-    setTxTitle("");
-    setTxAmount("");
-    setTxEnvelope("");
-    loadData();
-  };
+    try {
+      let rawAmount = parseFloat(txAmount);
+      let calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
+      let calculatedTaxPercentage = taxPercentage ? parseFloat(taxPercentage) : 0;
+      let finalAmount = rawAmount;
 
+      // Handle calculations if percentage tax is provided
+      if (calculatedTaxPercentage > 0 && !taxAmount) {
+        calculatedTaxAmount = (rawAmount * calculatedTaxPercentage) / 100;
+      }
+
+      // Adjust amount based on tax application type (Expense only)
+      if (txType === 'expense' && (calculatedTaxAmount > 0 || calculatedTaxPercentage > 0)) {
+        if (taxApplication === 'exclusive') {
+          // Add tax on top of the base amount
+          finalAmount = rawAmount + calculatedTaxAmount;
+        } else if (taxApplication === 'inclusive') {
+          // Tax is already included, or you can extract/keep the base amount depending on your tracking preference. 
+          // If you want the total recorded amount to remain as entered, or if you need to strip the tax component:
+          finalAmount = rawAmount; 
+        }
+      }
+
+      const transactionData = {
+        title: txTitle,
+        amount: finalAmount, // Updated amount reflecting tax rules
+        type: txType,
+        envelopeId: txType === 'expense' ? txEnvelope : undefined,
+        paymentMethod: paymentMethod,
+        purpose: purpose,
+        taxPercentage: calculatedTaxPercentage || undefined,
+        taxAmount: calculatedTaxAmount || undefined,
+        taxApplication: taxApplication, 
+        date: txDate || new Date()
+      };
+
+      const response = await addTransaction(transactionData);
+
+      setTransactions([response.data, ...transactions]);
+
+      // Reset form fields
+      setTxTitle('');
+      setTxAmount('');
+      setPurpose('');
+      setTaxPercentage('');
+      setTaxAmount('');
+      setTaxApplication('exclusive');
+      setPaymentMethod('cash');
+      setTxDate('');
+    } catch (error) {
+      console.error('Error creating transaction:', error.response?.data?.message || error.message);
+    }
+  };
   // In your Parent Component (e.g., Dashboard.jsx or App.jsx)
 
 const handleUpdateTransaction = async (id, updateData) => {
@@ -156,6 +203,18 @@ const handleUpdateTransaction = async (id, updateData) => {
           setTxType={setTxType}
           txEnvelope={txEnvelope}
           setTxEnvelope={setTxEnvelope}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
+          purpose={purpose}
+          setPurpose={setPurpose}
+          txDate={txDate}
+          setTxDate={setTxDate}
+          taxPercentage={taxPercentage}
+          setTaxPercentage={setTaxPercentage}
+          taxAmount={taxAmount}
+          setTaxAmount={setTaxAmount}
+          taxApplication={taxApplication}
+          setTaxApplication={setTaxApplication}
           handleDeleteTransaction={handleDeleteTransaction}
         />
       </div>

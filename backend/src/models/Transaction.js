@@ -13,9 +13,14 @@ const transactionSchema = new mongoose.Schema({
   title: { type: String, required: true },
   amount: { type: Number, required: true },
   type: { type: String, enum: ['income', 'expense', 'fill'], required: true },
-  envelopeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Envelope' }, // Null for income
+  envelopeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Envelope' },
+  paymentMethod: { type: String, default: 'cash' },
+  purpose: { type: String },
+  taxPercentage: { type: Number },
+  taxAmount: { type: Number },
+  taxApplication: { type: String }, // 'exclusive' or 'inclusive'
   date: { type: Date, default: Date.now },
-  updateLogs: [updateLogSchema] // Changed to an array to store multiple updates
+  updateLogs: [updateLogSchema]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

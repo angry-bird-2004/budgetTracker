@@ -35,16 +35,37 @@ const getTransactions = async (req, res) => {
 
 const createTransaction = async (req, res) => {
   try {
-    const { title, amount, type, envelopeId, date } = req.body;
+    const { 
+      title, 
+      amount, 
+      type, 
+      envelopeId, 
+      paymentMethod, 
+      purpose, 
+      taxPercentage, 
+      taxAmount, 
+      taxApplication, 
+      date 
+    } = req.body;
+
     const transaction = await Transaction.create({
       userId: req.user._id,
       title,
       amount,
       type,
       envelopeId: type === 'expense' ? envelopeId : undefined,
+      paymentMethod,
+      purpose,
+      taxPercentage,
+      taxAmount,
+      taxApplication,
       date: date || Date.now()
     });
-    res.status(201).json(transaction);
+
+    // Populate envelope data before sending response back
+    const populatedTx = await Transaction.findById(transaction._id).populate('envelopeId', 'name');
+
+    res.status(201).json(populatedTx);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -61,19 +82,14 @@ const updateTransaction = async (req, res) => {
     transaction.envelopeId = transaction.type === 'expense' ? (req.body.envelopeId || transaction.envelopeId) : undefined;
     transaction.date = req.body.date || transaction.date;
     
-    // Push the new update log into the array if provided
-    if (req.body.updateLog) {
-      if (!transaction.updateLogs) {
-        transaction.updateLogs = [];
-      }
-      transaction.updateLogs.push(req.body.updateLog);
+    // Push multiple logs cleanly into the array
+    if (req.body.updateLogs) {
+      transaction.updateLogs = req.body.updateLogs;
     }
 
     await transaction.save();
 
-    // Populate the envelope before sending back to frontend
     const updated = await Transaction.findById(transaction._id).populate('envelopeId', 'name');
-
     res.status(200).json(updated);
   } catch (error) {
     res.status(400).json({ message: error.message });

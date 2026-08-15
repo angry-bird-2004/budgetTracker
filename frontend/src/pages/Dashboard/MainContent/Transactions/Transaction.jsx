@@ -2,7 +2,7 @@ import React, { useState } from "react";
 
 const Transaction = ({
   handleCreateTransaction,
-  handleUpdateTransaction, // Added prop for handling the edit/update submission
+  handleUpdateTransaction,
   txTitle,
   setTxTitle,
   txAmount,
@@ -21,6 +21,8 @@ const Transaction = ({
   setTaxPercentage,
   taxAmount,
   setTaxAmount,
+  taxApplication,
+  setTaxApplication, // Fixed typo from settaxApplication
   envelopes,
   transactions,
   handleDeleteTransaction,
@@ -36,9 +38,11 @@ const Transaction = ({
   const [editAmount, setEditAmount] = useState("");
   const [editReason, setEditReason] = useState("");
 
+  // New states for advanced tax configuration during creation
+  const [taxMode, setTaxMode] = useState("percentage"); // "percentage" or "fixed"
+
   const toggleExpand = (id) => {
     setExpandedTxId(expandedTxId === id ? null : id);
-    // Close edit mode if collapsing/switching
     if (expandedTxId !== id) {
       setEditingTxId(null);
     }
@@ -49,7 +53,7 @@ const Transaction = ({
   };
 
   const startEditing = (tx, e) => {
-    e.stopPropagation(); // Prevent toggling the expand/collapse container
+    e.stopPropagation();
     setEditingTxId(tx._id);
     setEditAmount(tx.amount);
     setEditReason("");
@@ -73,15 +77,21 @@ const Transaction = ({
     const newAmountNum = parseFloat(editAmount);
     const diff = newAmountNum - oldAmount;
 
+    // Build the new single log entry to push into the array
+    const newLogEntry = {
+      before: oldAmount,
+      after: newAmountNum,
+      diff: diff,
+      reason: editReason,
+      timestamp: new Date(),
+    };
+
+    // Combine existing logs with the new entry
+    const updatedLogs = tx.updateLogs ? [...tx.updateLogs, newLogEntry] : [newLogEntry];
+
     const updateData = {
       amount: newAmountNum,
-      updateLog: {
-        before: oldAmount,
-        after: newAmountNum,
-        diff: diff,
-        reason: editReason,
-        timestamp: new Date(),
-      },
+      updateLogs: updatedLogs,
     };
 
     if (handleUpdateTransaction) {
@@ -183,31 +193,63 @@ const Transaction = ({
           </div>
         )}
 
-        {/* Optional Tax Fields (Expense Only) & Date/Time */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {txType === "expense" && (
-            <>
-              <input
-                type="number"
-                placeholder="Tax % (Optional)"
-                value={taxPercentage}
-                onChange={(e) => setTaxPercentage(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white"
-              />
-              <input
-                type="number"
-                placeholder="Tax Amount (Optional)"
-                value={taxAmount}
-                onChange={(e) => setTaxAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white"
-              />
-            </>
-          )}
+        {/* Advanced Tax Configuration Fields (Expense Only) */}
+        {txType === "expense" && (
+          <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-3">
+            <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Tax Configuration</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <select
+                value={taxMode}
+                onChange={(e) => {
+                  setTaxMode(e.target.value);
+                  setTaxPercentage("");
+                  setTaxAmount("");
+                }}
+                className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white text-xs"
+              >
+                <option value="percentage">Tax by Percentage (%)</option>
+                <option value="fixed">Tax by Fixed Amount ($)</option>
+              </select>
+
+              <select
+                value={taxApplication}
+                onChange={(e) => setTaxApplication(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white text-xs"
+              >
+                <option value="exclusive">Tax Added on Top (Exclusive)</option>
+                <option value="inclusive">Tax Already Included in Amount</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {taxMode === "percentage" ? (
+                <input
+                  type="number"
+                  placeholder="Tax Percentage e.g. 5 (for 5%)"
+                  value={taxPercentage}
+                  onChange={(e) => setTaxPercentage(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white text-xs"
+                />
+              ) : (
+                <input
+                  type="number"
+                  placeholder="Fixed Tax Amount ($)"
+                  value={taxAmount}
+                  onChange={(e) => setTaxAmount(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white text-xs"
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Date/Time */}
+        <div className="grid grid-cols-1 gap-4">
           <input
             type="datetime-local"
             value={txDate}
             onChange={(e) => setTxDate(e.target.value)}
-            className={`w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white ${txType === 'income' ? 'sm:col-span-3' : ''}`}
+            className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white"
             required
           />
         </div>
@@ -278,8 +320,7 @@ const Transaction = ({
                       <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-1">
                         <p><span className="text-slate-300 font-medium">Type:</span> Income</p>
                         <p><span className="text-slate-300 font-medium">Payment Method:</span> {tx.paymentMethod || 'Cash'}</p>
-                        <p><span className="text-slate-300 font-medium">Transaction Date/Time (Field):</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
-                        <p><span className="text-slate-300 font-medium">Created At (System):</span> {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "N/A"}</p>
+                        <p><span className="text-slate-300 font-medium">Transaction Date/Time:</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
                       </div>
                     ) : (
                       <p className="text-xs text-slate-400">Income • Click to view details</p>
@@ -291,7 +332,7 @@ const Transaction = ({
           )}
         </div>
 
-        {/* 2. Separate Dropdowns for Each Envelope */}
+        {/* 2. Envelope Expenses Dropdowns */}
         {envelopes.map((env) => {
           const envExpenses = expenseTransactions.filter(
             (tx) =>
@@ -354,29 +395,61 @@ const Transaction = ({
                           <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
                             <p><span className="text-slate-300 font-medium">Envelope:</span> {env.name}</p>
                             {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
-                            {tx.taxAmount && <p><span className="text-slate-300 font-medium">Tax:</span> ${tx.taxAmount} {tx.taxPercentage ? `(${tx.taxPercentage}%)` : ""}</p>}
-                            <p><span className="text-slate-300 font-medium">Transaction Date/Time (Field):</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
-                            <p><span className="text-slate-300 font-medium">Created At (System):</span> {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "N/A"}</p>
-
-                            {/* Audit Log / Amount Modification History */}
-                            {/* Audit Log / Amount Modification History */}
-{tx.updateLogs && tx.updateLogs.length > 0 && (
-  <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
-    <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
-    {tx.updateLogs.map((log, index) => (
-      <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
-        <div className="flex justify-between items-center text-slate-300">
-          <span>Update #{index + 1}: ${log.before} → ${log.after}</span>
-          <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
-            {log.diff >= 0 ? `+${log.diff}` : log.diff}
-          </span>
-        </div>
-        <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
-        <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                            
+                            {/* Detailed Tax View */}
+                            {/* Detailed Tax View */}
+{(tx.taxAmount || tx.taxPercentage) && (
+  <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1 text-xs">
+    <p className="text-slate-300 font-semibold uppercase tracking-wider text-[10px]">Tax Breakdown & Details:</p>
+    
+    <div className="space-y-0.5 text-slate-400">
+      <div className="flex justify-between">
+        <span>Base Amount:</span>
+        <span className="text-slate-200 font-medium">
+          ${
+            tx.taxApplication === 'exclusive'
+              ? (tx.amount - (tx.taxAmount || (tx.amount * (tx.taxPercentage / 100)))).toFixed(2)
+              : (tx.amount - (tx.taxAmount || 0)).toFixed(2)
+          }
+        </span>
       </div>
-    ))}
+
+      <div className="flex justify-between">
+        <span>Tax Applied ({tx.taxApplication || 'exclusive'}):</span>
+        <span className="text-rose-400 font-medium">
+          +${tx.taxAmount ? tx.taxAmount : ((tx.amount * tx.taxPercentage) / 100).toFixed(2)}
+          {tx.taxPercentage ? ` (${tx.taxPercentage}%)` : ""}
+        </span>
+      </div>
+
+      <div className="flex justify-between pt-1 border-t border-slate-800 font-semibold text-slate-200">
+        <span>Total Amount Charged:</span>
+        <span>${tx.amount}</span>
+      </div>
+    </div>
   </div>
 )}
+
+                            <p><span className="text-slate-300 font-medium">Transaction Date:</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
+
+                            {/* Multi-Update Audit Logs */}
+                            {tx.updateLogs && tx.updateLogs.length > 0 && (
+                              <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
+                                <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
+                                {tx.updateLogs.map((log, index) => (
+                                  <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
+                                    <div className="flex justify-between items-center text-slate-300">
+                                      <span>Update #{index + 1}: ${log.before} → ${log.after}</span>
+                                      <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                                        {log.diff >= 0 ? `+${log.diff}` : log.diff}
+                                      </span>
+                                    </div>
+                                    <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
+                                    <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
                             {/* Edit Section */}
                             {editingTxId === tx._id ? (
@@ -437,7 +510,7 @@ const Transaction = ({
           );
         })}
 
-        {/* 3. General / Unassigned Expenses Dropdown (Optional fallback) */}
+        {/* 3. General / Unassigned Expenses Dropdown */}
         {generalExpenses.length > 0 && (
           <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
             <button
@@ -489,20 +562,38 @@ const Transaction = ({
                       <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
                         <p><span className="text-slate-300 font-medium">Envelope:</span> General</p>
                         {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
-                        {tx.taxAmount && <p><span className="text-slate-300 font-medium">Tax:</span> ${tx.taxAmount} {tx.taxPercentage ? `(${tx.taxPercentage}%)` : ""}</p>}
-                        <p><span className="text-slate-300 font-medium">Transaction Date/Time (Field):</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
-                        <p><span className="text-slate-300 font-medium">Created At (System):</span> {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "N/A"}</p>
-
-                        {/* Audit Log / Amount Modification History */}
-                        {tx.updateLog && (
-                          <div className="bg-slate-950 p-2 rounded border border-slate-800 space-y-1">
-                            <p className="text-amber-400 font-medium">Amount Modified:</p>
-                            <p>Before: ${tx.updateLog.before} → After: ${tx.updateLog.after} (Diff: ${tx.updateLog.diff >= 0 ? `+${tx.updateLog.diff}` : tx.updateLog.diff})</p>
-                            <p><span className="text-slate-300">Reason:</span> {tx.updateLog.reason}</p>
+                        
+                        {(tx.taxAmount || tx.taxPercentage) && (
+                          <div className="bg-slate-950 p-2 rounded border border-slate-800 space-y-0.5">
+                            <p className="text-slate-300 font-medium">Tax Breakdown:</p>
+                            <p>
+                              {tx.taxPercentage ? `Rate: ${tx.taxPercentage}%` : ""} 
+                              {tx.taxAmount ? ` • Tax Value: $${tx.taxAmount}` : ""}
+                              {tx.taxApplication ? ` (${tx.taxApplication})` : ""}
+                            </p>
                           </div>
                         )}
 
-                        {/* Edit Section */}
+                        <p><span className="text-slate-300 font-medium">Transaction Date:</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
+
+                        {tx.updateLogs && tx.updateLogs.length > 0 && (
+                          <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
+                            <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
+                            {tx.updateLogs.map((log, index) => (
+                              <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
+                                <div className="flex justify-between items-center text-slate-300">
+                                  <span>Update #{index + 1}: ${log.before} → ${log.after}</span>
+                                  <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                                    {log.diff >= 0 ? `+${log.diff}` : log.diff}
+                                  </span>
+                                </div>
+                                <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
+                                <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {editingTxId === tx._id ? (
                           <div className="bg-slate-950 p-3 rounded border border-slate-700 space-y-2" onClick={(e) => e.stopPropagation()}>
                             <p className="font-medium text-slate-200">Change Expense Amount</p>
@@ -556,7 +647,6 @@ const Transaction = ({
             )}
           </div>
         )}
-
       </div>
     </div>
   );

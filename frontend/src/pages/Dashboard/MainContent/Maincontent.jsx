@@ -24,6 +24,18 @@ const Maincontent = ({
   setTxType,
   txEnvelope,
   setTxEnvelope,
+  taxApplication,
+  setTaxApplication,
+  paymentMethod,
+  setPaymentMethod,
+  purpose,
+  setPurpose,
+  txDate,
+  setTxDate,
+  taxPercentage,
+  setTaxPercentage,
+  taxAmount,
+  setTaxAmount,
   handleDeleteTransaction,
 }) => {
   return (
@@ -58,6 +70,18 @@ const Maincontent = ({
           setTxEnvelope={setTxEnvelope}
           envelopes={envelopes}
           transactions={transactions}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
+          purpose={purpose}
+          setPurpose={setPurpose}
+          txDate={txDate}
+          setTxDate={setTxDate}
+          taxPercentage={taxPercentage}
+          setTaxPercentage={setTaxPercentage}
+          taxAmount={taxAmount}
+          setTaxAmount={setTaxAmount}
+          taxApplication={taxApplication}
+          setTaxApplication={setTaxApplication}
           handleDeleteTransaction={handleDeleteTransaction}
         />
       </div>
