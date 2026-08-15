@@ -154,7 +154,7 @@ const Dashboard = () => {
     setTaxApplication(tx.taxApplication || "exclusive");
   };
 
-  // Reset/Cancel transaction edit mode
+  // Reset/Cancel transaction edit mode (Preserves incomeSource selection)
   const handleCancelEditTransaction = () => {
     setEditingTxId(null);
     setTxTitle("");
@@ -164,9 +164,9 @@ const Dashboard = () => {
     setTaxAmount("");
     setTaxApplication("exclusive");
     setPaymentMethod("cash");
-    setIncomeSource("");
     setTxDate("");
     setTxEnvelope("");
+    // Note: incomeSource is intentionally omitted here so your persistent selection remains intact
   };
 
   // Unified handler to create a new transaction OR update an existing one with update logging
@@ -446,6 +446,7 @@ const Dashboard = () => {
                             return (
                               <button
                                 key={inc._id}
+                                type="button"
                                 onClick={() => {
                                   setIncomeSource(inc._id);
                                   setShowIncomeDropdown(false);
@@ -482,6 +483,7 @@ const Dashboard = () => {
                       "Source"}
                   </span>
                   <button
+                    type="button"
                     onClick={() => setIncomeSource("")}
                     className="hover:text-white"
                   >
