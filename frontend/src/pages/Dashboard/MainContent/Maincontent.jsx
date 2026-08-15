@@ -179,12 +179,24 @@ const Maincontent = ({
                   <option value="">Select Income Source (Optional)</option>
                   {transactions
                     .filter((t) => t.type === "income")
-                    .map((inc) => (
-                      <option key={inc._id} value={inc._id}>
-                        {inc.title} ({symbol}
-                        {formatAmount(inc.amount)})
-                      </option>
-                    ))}
+                    .map((inc) => {
+                      const spent = transactions
+                        .filter(
+                          (t) =>
+                            t.type === "expense" &&
+                            (t.incomeSource?._id === inc._id ||
+                              t.incomeSource === inc._id),
+                        )
+                        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+                      const remaining = inc.amount - spent;
+
+                      return (
+                        <option key={inc._id} value={inc._id}>
+                          {inc.title} ({symbol}
+                          {formatAmount(remaining)} left)
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
             )}
