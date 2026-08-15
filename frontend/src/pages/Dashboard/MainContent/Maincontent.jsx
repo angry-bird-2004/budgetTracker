@@ -37,6 +37,8 @@ const Maincontent = ({
   taxAmount,
   setTaxAmount,
   handleDeleteTransaction,
+  currency,      // NEW Prop
+  formatAmount,  // NEW Prop
 }) => {
   return (
     <>
@@ -54,6 +56,8 @@ const Maincontent = ({
           handleUpdateEnvelope={handleUpdateEnvelope}
           editingEnvId={editingEnvId}
           setEditingEnvId={setEditingEnvId}
+          currency={currency}
+          formatAmount={formatAmount}
         />
 
         {/* Transactions Section */}
@@ -83,6 +87,8 @@ const Maincontent = ({
           taxApplication={taxApplication}
           setTaxApplication={setTaxApplication}
           handleDeleteTransaction={handleDeleteTransaction}
+          currency={currency}
+          formatAmount={formatAmount}
         />
       </div>
     </>

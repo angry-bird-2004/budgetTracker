@@ -22,11 +22,15 @@ const Transaction = ({
   taxAmount,
   setTaxAmount,
   taxApplication,
-  setTaxApplication, // Fixed typo from settaxApplication
+  setTaxApplication,
   envelopes,
   transactions,
   handleDeleteTransaction,
+  currency = "USD",   // NEW Prop
+  formatAmount,       // NEW Prop
 }) => {
+  const symbol = currency === "PKR" ? "Rs " : "$";
+
   // State to track which transaction's details are expanded
   const [expandedTxId, setExpandedTxId] = useState(null);
   
@@ -55,7 +59,10 @@ const Transaction = ({
   const startEditing = (tx, e) => {
     e.stopPropagation();
     setEditingTxId(tx._id);
-    setEditAmount(tx.amount);
+    // Display value matching active currency view during editing
+    const conversionRate = 277.42;
+    const rawVal = currency === "PKR" ? tx.amount * conversionRate : tx.amount;
+    setEditAmount(rawVal.toFixed(2));
     setEditReason("");
   };
 
@@ -73,8 +80,12 @@ const Transaction = ({
       return;
     }
 
+    const conversionRate = 277.42;
+    const inputAmountNum = parseFloat(editAmount);
+    // Normalize back to USD for DB storage if user is in PKR view
+    const newAmountNum = currency === "PKR" ? inputAmountNum / conversionRate : inputAmountNum;
+    
     const oldAmount = parseFloat(tx.amount);
-    const newAmountNum = parseFloat(editAmount);
     const diff = newAmountNum - oldAmount;
 
     // Build the new single log entry to push into the array
@@ -86,7 +97,6 @@ const Transaction = ({
       timestamp: new Date(),
     };
 
-    // Combine existing logs with the new entry
     const updatedLogs = tx.updateLogs ? [...tx.updateLogs, newLogEntry] : [newLogEntry];
 
     const updateData = {
@@ -127,7 +137,7 @@ const Transaction = ({
           />
           <input
             type="number"
-            placeholder="Amount ($)"
+            placeholder={`Amount (${symbol.trim()})`}
             value={txAmount}
             onChange={(e) => setTxAmount(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white"
@@ -208,7 +218,7 @@ const Transaction = ({
                 className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white text-xs"
               >
                 <option value="percentage">Tax by Percentage (%)</option>
-                <option value="fixed">Tax by Fixed Amount ($)</option>
+                <option value="fixed">Tax by Fixed Amount ({symbol.trim()})</option>
               </select>
 
               <select
@@ -233,7 +243,7 @@ const Transaction = ({
               ) : (
                 <input
                   type="number"
-                  placeholder="Fixed Tax Amount ($)"
+                  placeholder={`Fixed Tax Amount (${symbol.trim()})`}
                   value={taxAmount}
                   onChange={(e) => setTaxAmount(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white text-xs"
@@ -303,7 +313,7 @@ const Transaction = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-emerald-400">+${tx.amount}</span>
+                        <span className="font-bold text-emerald-400">+{symbol}{formatAmount(tx.amount)}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -364,145 +374,148 @@ const Transaction = ({
                   {envExpenses.length === 0 ? (
                     <p className="text-xs text-slate-500 italic p-2">No expenses for this envelope.</p>
                   ) : (
-                    envExpenses.map((tx) => (
-                      <div
-                        key={tx._id}
-                        className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 cursor-pointer hover:border-slate-700 transition"
-                        onClick={() => toggleExpand(tx._id)}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-sm">{tx.title}</p>
-                            <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 uppercase">
-                              {tx.paymentMethod || 'cash'}
-                            </span>
+                    envExpenses.map((tx) => {
+                      const calculatedBase = tx.taxApplication === 'exclusive'
+                        ? (tx.amount - (tx.taxAmount || (tx.amount * (tx.taxPercentage / 100))))
+                        : (tx.amount - (tx.taxAmount || 0));
+                      
+                      const calculatedTaxVal = tx.taxAmount ? tx.taxAmount : ((tx.amount * tx.taxPercentage) / 100);
+
+                      return (
+                        <div
+                          key={tx._id}
+                          className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 cursor-pointer hover:border-slate-700 transition"
+                          onClick={() => toggleExpand(tx._id)}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-sm">{tx.title}</p>
+                              <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 uppercase">
+                                {tx.paymentMethod || 'cash'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-rose-400">-{symbol}{formatAmount(tx.amount)}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTransaction(tx._id);
+                                }}
+                                className="text-rose-500 text-xs hover:text-rose-300"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-rose-400">-${tx.amount}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTransaction(tx._id);
-                              }}
-                              className="text-rose-500 text-xs hover:text-rose-300"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
 
-                        {expandedTxId === tx._id ? (
-                          <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
-                            <p><span className="text-slate-300 font-medium">Envelope:</span> {env.name}</p>
-                            {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
-                            
-                            {/* Detailed Tax View */}
-                            {/* Detailed Tax View */}
-{(tx.taxAmount || tx.taxPercentage) && (
-  <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1 text-xs">
-    <p className="text-slate-300 font-semibold uppercase tracking-wider text-[10px]">Tax Breakdown & Details:</p>
-    
-    <div className="space-y-0.5 text-slate-400">
-      <div className="flex justify-between">
-        <span>Base Amount:</span>
-        <span className="text-slate-200 font-medium">
-          ${
-            tx.taxApplication === 'exclusive'
-              ? (tx.amount - (tx.taxAmount || (tx.amount * (tx.taxPercentage / 100)))).toFixed(2)
-              : (tx.amount - (tx.taxAmount || 0)).toFixed(2)
-          }
-        </span>
-      </div>
-
-      <div className="flex justify-between">
-        <span>Tax Applied ({tx.taxApplication || 'exclusive'}):</span>
-        <span className="text-rose-400 font-medium">
-          +${tx.taxAmount ? tx.taxAmount : ((tx.amount * tx.taxPercentage) / 100).toFixed(2)}
-          {tx.taxPercentage ? ` (${tx.taxPercentage}%)` : ""}
-        </span>
-      </div>
-
-      <div className="flex justify-between pt-1 border-t border-slate-800 font-semibold text-slate-200">
-        <span>Total Amount Charged:</span>
-        <span>${tx.amount}</span>
-      </div>
-    </div>
-  </div>
-)}
-
-                            <p><span className="text-slate-300 font-medium">Transaction Date:</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
-
-                            {/* Multi-Update Audit Logs */}
-                            {tx.updateLogs && tx.updateLogs.length > 0 && (
-                              <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
-                                <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
-                                {tx.updateLogs.map((log, index) => (
-                                  <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
-                                    <div className="flex justify-between items-center text-slate-300">
-                                      <span>Update #{index + 1}: ${log.before} → ${log.after}</span>
-                                      <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
-                                        {log.diff >= 0 ? `+${log.diff}` : log.diff}
+                          {expandedTxId === tx._id ? (
+                            <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
+                              <p><span className="text-slate-300 font-medium">Envelope:</span> {env.name}</p>
+                              {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
+                              
+                              {/* Detailed Tax View */}
+                              {(tx.taxAmount || tx.taxPercentage) && (
+                                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1 text-xs">
+                                  <p className="text-slate-300 font-semibold uppercase tracking-wider text-[10px]">Tax Breakdown & Details:</p>
+                                  
+                                  <div className="space-y-0.5 text-slate-400">
+                                    <div className="flex justify-between">
+                                      <span>Base Amount:</span>
+                                      <span className="text-slate-200 font-medium">
+                                        {symbol}{formatAmount(calculatedBase)}
                                       </span>
                                     </div>
-                                    <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
-                                    <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
 
-                            {/* Edit Section */}
-                            {editingTxId === tx._id ? (
-                              <div className="bg-slate-950 p-3 rounded border border-slate-700 space-y-2" onClick={(e) => e.stopPropagation()}>
-                                <p className="font-medium text-slate-200">Change Expense Amount</p>
-                                <input
-                                  type="number"
-                                  placeholder="New Amount ($)"
-                                  value={editAmount}
-                                  onChange={(e) => setEditAmount(e.target.value)}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
-                                />
-                                <input
-                                  type="text"
-                                  placeholder="Reason for changing amount"
-                                  value={editReason}
-                                  onChange={(e) => setEditReason(e.target.value)}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
-                                />
-                                <div className="flex gap-2 pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => submitEdit(tx, e)}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelEditing}
-                                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-xs"
-                                  >
-                                    Cancel
-                                  </button>
+                                    <div className="flex justify-between">
+                                      <span>Tax Applied ({tx.taxApplication || 'exclusive'}):</span>
+                                      <span className="text-rose-400 font-medium">
+                                        +{symbol}{formatAmount(calculatedTaxVal)}
+                                        {tx.taxPercentage ? ` (${tx.taxPercentage}%)` : ""}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex justify-between pt-1 border-t border-slate-800 font-semibold text-slate-200">
+                                      <span>Total Amount Charged:</span>
+                                      <span>{symbol}{formatAmount(tx.amount)}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => startEditing(tx, e)}
-                                className="text-sky-400 hover:text-sky-300 text-xs font-medium underline block pt-1"
-                              >
-                                Edit Amount
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400">
-                            {tx.purpose ? `Purpose: ${tx.purpose} • ` : ""}Click to view details
-                          </p>
-                        )}
-                      </div>
-                    ))
+                              )}
+
+                              <p><span className="text-slate-300 font-medium">Transaction Date:</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
+
+                              {/* Multi-Update Audit Logs */}
+                              {tx.updateLogs && tx.updateLogs.length > 0 && (
+                                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
+                                  <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
+                                  {tx.updateLogs.map((log, index) => (
+                                    <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
+                                      <div className="flex justify-between items-center text-slate-300">
+                                        <span>Update #{index + 1}: {symbol}{formatAmount(log.before)} → {symbol}{formatAmount(log.after)}</span>
+                                        <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                                          {log.diff >= 0 ? `+${formatAmount(log.diff)}` : formatAmount(log.diff)}
+                                        </span>
+                                      </div>
+                                      <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
+                                      <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Edit Section */}
+                              {editingTxId === tx._id ? (
+                                <div className="bg-slate-950 p-3 rounded border border-slate-700 space-y-2" onClick={(e) => e.stopPropagation()}>
+                                  <p className="font-medium text-slate-200">Change Expense Amount</p>
+                                  <input
+                                    type="number"
+                                    placeholder={`New Amount (${symbol.trim()})`}
+                                    value={editAmount}
+                                    onChange={(e) => setEditAmount(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Reason for changing amount"
+                                    value={editReason}
+                                    onChange={(e) => setEditReason(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                                  />
+                                  <div className="flex gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => submitEdit(tx, e)}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditing}
+                                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-xs"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => startEditing(tx, e)}
+                                  className="text-sky-400 hover:text-sky-300 text-xs font-medium underline block pt-1"
+                                >
+                                  Edit Amount
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400">
+                              {tx.purpose ? `Purpose: ${tx.purpose} • ` : ""}Click to view details
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -531,118 +544,143 @@ const Transaction = ({
 
             {openDropdown === "general" && (
               <div className="p-3 border-t border-slate-800 space-y-2 max-h-48 overflow-y-auto">
-                {generalExpenses.map((tx) => (
-                  <div
-                    key={tx._id}
-                    className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 cursor-pointer hover:border-slate-700 transition"
-                    onClick={() => toggleExpand(tx._id)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">{tx.title}</p>
-                        <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 uppercase">
-                          {tx.paymentMethod || 'cash'}
-                        </span>
+                {generalExpenses.map((tx) => {
+                  const calculatedBase = tx.taxApplication === 'exclusive'
+                    ? (tx.amount - (tx.taxAmount || (tx.amount * (tx.taxPercentage / 100))))
+                    : (tx.amount - (tx.taxAmount || 0));
+                  
+                  const calculatedTaxVal = tx.taxAmount ? tx.taxAmount : ((tx.amount * tx.taxPercentage) / 100);
+
+                  return (
+                    <div
+                      key={tx._id}
+                      className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 cursor-pointer hover:border-slate-700 transition"
+                      onClick={() => toggleExpand(tx._id)}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm">{tx.title}</p>
+                          <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 uppercase">
+                            {tx.paymentMethod || 'cash'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-rose-400">-{symbol}{formatAmount(tx.amount)}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTransaction(tx._id);
+                            }}
+                            className="text-rose-500 text-xs hover:text-rose-300"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-rose-400">-${tx.amount}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteTransaction(tx._id);
-                          }}
-                          className="text-rose-500 text-xs hover:text-rose-300"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
 
-                    {expandedTxId === tx._id ? (
-                      <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
-                        <p><span className="text-slate-300 font-medium">Envelope:</span> General</p>
-                        {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
-                        
-                        {(tx.taxAmount || tx.taxPercentage) && (
-                          <div className="bg-slate-950 p-2 rounded border border-slate-800 space-y-0.5">
-                            <p className="text-slate-300 font-medium">Tax Breakdown:</p>
-                            <p>
-                              {tx.taxPercentage ? `Rate: ${tx.taxPercentage}%` : ""} 
-                              {tx.taxAmount ? ` • Tax Value: $${tx.taxAmount}` : ""}
-                              {tx.taxApplication ? ` (${tx.taxApplication})` : ""}
-                            </p>
-                          </div>
-                        )}
-
-                        <p><span className="text-slate-300 font-medium">Transaction Date:</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
-
-                        {tx.updateLogs && tx.updateLogs.length > 0 && (
-                          <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
-                            <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
-                            {tx.updateLogs.map((log, index) => (
-                              <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
-                                <div className="flex justify-between items-center text-slate-300">
-                                  <span>Update #{index + 1}: ${log.before} → ${log.after}</span>
-                                  <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
-                                    {log.diff >= 0 ? `+${log.diff}` : log.diff}
+                      {expandedTxId === tx._id ? (
+                        <div className="text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-2">
+                          <p><span className="text-slate-300 font-medium">Envelope:</span> General</p>
+                          {tx.purpose && <p><span className="text-slate-300 font-medium">Purpose:</span> {tx.purpose}</p>}
+                          
+                          {(tx.taxAmount || tx.taxPercentage) && (
+                            <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1 text-xs">
+                              <p className="text-slate-300 font-semibold uppercase tracking-wider text-[10px]">Tax Breakdown & Details:</p>
+                              
+                              <div className="space-y-0.5 text-slate-400">
+                                <div className="flex justify-between">
+                                  <span>Base Amount:</span>
+                                  <span className="text-slate-200 font-medium">
+                                    {symbol}{formatAmount(calculatedBase)}
                                   </span>
                                 </div>
-                                <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
-                                <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
 
-                        {editingTxId === tx._id ? (
-                          <div className="bg-slate-950 p-3 rounded border border-slate-700 space-y-2" onClick={(e) => e.stopPropagation()}>
-                            <p className="font-medium text-slate-200">Change Expense Amount</p>
-                            <input
-                              type="number"
-                              placeholder="New Amount ($)"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Reason for changing amount"
-                              value={editReason}
-                              onChange={(e) => setEditReason(e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
-                            />
-                            <div className="flex gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={(e) => submitEdit(tx, e)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium"
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelEditing}
-                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-xs"
-                              >
-                                Cancel
-                              </button>
+                                <div className="flex justify-between">
+                                  <span>Tax Applied ({tx.taxApplication || 'exclusive'}):</span>
+                                  <span className="text-rose-400 font-medium">
+                                    +{symbol}{formatAmount(calculatedTaxVal)}
+                                    {tx.taxPercentage ? ` (${tx.taxPercentage}%)` : ""}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between pt-1 border-t border-slate-800 font-semibold text-slate-200">
+                                  <span>Total Amount Charged:</span>
+                                  <span>{symbol}{formatAmount(tx.amount)}</span>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => startEditing(tx, e)}
-                            className="text-sky-400 hover:text-sky-300 text-xs font-medium underline block pt-1"
-                          >
-                            Edit Amount
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-400">Click to view details</p>
-                    )}
-                  </div>
-                ))}
+                          )}
+
+                          <p><span className="text-slate-300 font-medium">Transaction Date:</span> {tx.date ? new Date(tx.date).toLocaleString() : "N/A"}</p>
+
+                          {tx.updateLogs && tx.updateLogs.length > 0 && (
+                            <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
+                              <p className="text-amber-400 font-medium text-xs">Amount Modification History ({tx.updateLogs.length}):</p>
+                              {tx.updateLogs.map((log, index) => (
+                                <div key={index} className="border-t border-slate-900 pt-1.5 space-y-0.5 text-[11px]">
+                                  <div className="flex justify-between items-center text-slate-300">
+                                    <span>Update #{index + 1}: {symbol}{formatAmount(log.before)} → {symbol}{formatAmount(log.after)}</span>
+                                    <span className={log.diff >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                                      {log.diff >= 0 ? `+${formatAmount(log.diff)}` : formatAmount(log.diff)}
+                                    </span>
+                                  </div>
+                                  <p><span className="text-slate-400">Reason:</span> {log.reason}</p>
+                                  <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {editingTxId === tx._id ? (
+                            <div className="bg-slate-950 p-3 rounded border border-slate-700 space-y-2" onClick={(e) => e.stopPropagation()}>
+                              <p className="font-medium text-slate-200">Change Expense Amount</p>
+                              <input
+                                type="number"
+                                placeholder={`New Amount (${symbol.trim()})`}
+                                value={editAmount}
+                                onChange={(e) => setEditAmount(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Reason for changing amount"
+                                value={editReason}
+                                onChange={(e) => setEditReason(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                              />
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => submitEdit(tx, e)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditing}
+                                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => startEditing(tx, e)}
+                              className="text-sky-400 hover:text-sky-300 text-xs font-medium underline block pt-1"
+                            >
+                              Edit Amount
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400">Click to view details</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

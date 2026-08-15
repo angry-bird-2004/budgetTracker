@@ -12,7 +12,11 @@ const Envelope = ({
   handleUpdateEnvelope,
   editingEnvId,
   setEditingEnvId,
+  currency = "USD",   // NEW Prop
+  formatAmount,       // NEW Prop
 }) => {
+  const symbol = currency === "PKR" ? "Rs " : "$";
+
   return (
     <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 space-y-6">
       <div className="flex justify-between items-center">
@@ -43,7 +47,7 @@ const Envelope = ({
         />
         <input
           type="number"
-          placeholder="Allocated Limit ($)"
+          placeholder={`Allocated Limit (${symbol.trim()})`}
           value={envAmount}
           onChange={(e) => setEnvAmount(e.target.value)}
           className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white"
@@ -104,8 +108,8 @@ const Envelope = ({
                 </div>
               </div>
               <div className="flex justify-between text-xs text-slate-400">
-                <span>Spent: ${spent.toFixed(2)}</span>
-                <span>Limit: ${limit.toFixed(2)}</span>
+                <span>Spent: {symbol}{formatAmount(spent)}</span>
+                <span>Limit: {symbol}{formatAmount(limit)}</span>
               </div>
               <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div
