@@ -12,15 +12,16 @@ import {
 import Analysis from "./Analysis/Analysis";
 import Header from "./Header/Header";
 import Maincontent from "./MainContent/Maincontent";
+import { useExchangeRate } from "../../Hooks/useExchangeRate";
 
 const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [period, setPeriod] = useState("monthly");
 
-  // NEW: Currency State ('USD' or 'PKR')
+  // Currency State ('USD' or 'PKR')
   const [currency, setCurrency] = useState("USD");
-  const conversionRate = 277.42; // Standard USD to PKR exchange rate reference
+  const { conversionRate, loading } = useExchangeRate();
 
   // Helper utility to format and convert amounts anywhere in dashboard
   const formatAmount = (val) => {
@@ -42,13 +43,15 @@ const Dashboard = () => {
   const [txAmount, setTxAmount] = useState("");
   const [txType, setTxType] = useState("expense");
   const [txEnvelope, setTxEnvelope] = useState("");
-
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [purpose, setPurpose] = useState("");
   const [txDate, setTxDate] = useState("");
   const [taxPercentage, setTaxPercentage] = useState("");
   const [taxAmount, setTaxAmount] = useState("");
   const [taxApplication, setTaxApplication] = useState("exclusive");
+  
+  // State for tracking transaction being edited
+  const [editingTxId, setEditingTxId] = useState(null);
 
   const loadData = async () => {
     try {
@@ -69,8 +72,6 @@ const Dashboard = () => {
     e.preventDefault();
     if (!envName || !envAmount) return;
 
-    // If user enters amount in PKR while viewing PKR, store normalized USD value or keep raw depending on preference. 
-    // Assuming inputs are typed in the active currency view:
     const baseAmountInput = currency === "PKR" ? Number(envAmount) / conversionRate : Number(envAmount);
 
     if (editingEnvId) {
@@ -93,7 +94,6 @@ const Dashboard = () => {
     if (envelopeToEdit) {
       setEditingEnvId(envelopeToEdit._id);
       setEnvName(envelopeToEdit.name);
-      // Display value matching active currency view
       const displayedVal = currency === "PKR" 
         ? envelopeToEdit.allocatedAmount * conversionRate 
         : envelopeToEdit.allocatedAmount;
@@ -111,11 +111,57 @@ const Dashboard = () => {
     loadData();
   };
 
+  // Populate transaction fields into form for editing
+  const handleStartEditTransaction = (tx) => {
+    setEditingTxId(tx._id);
+    setTxTitle(tx.title || "");
+    
+    // Display amount based on current currency view
+    const displayedAmount = currency === "PKR" ? (tx.amount * conversionRate) : tx.amount;
+    setTxAmount(displayedAmount.toFixed(2));
+    
+    setTxType(tx.type || "expense");
+    setTxEnvelope(tx.envelopeId?._id || tx.envelopeId || "");
+    
+    // Ensure payment method correctly captures card, cash, or other saved values
+    setPaymentMethod(tx.paymentMethod ? tx.paymentMethod.toLowerCase() : "cash");
+    
+    setPurpose(tx.purpose || "");
+    
+    // Format date for standard <input type="date" /> (YYYY-MM-DD)
+    if (tx.date) {
+      const formattedDate = new Date(tx.date).toISOString().split("T")[0];
+      setTxDate(formattedDate);
+    } else {
+      setTxDate("");
+    }
+
+    setTaxPercentage(tx.taxPercentage ?? "");
+    
+    const displayedTax = currency === "PKR" && tx.taxAmount ? (tx.taxAmount * conversionRate) : (tx.taxAmount || "");
+    setTaxAmount(displayedTax ?? "");
+    setTaxApplication(tx.taxApplication || "exclusive");
+  };
+
+  // Reset/Cancel transaction edit mode
+  const handleCancelEditTransaction = () => {
+    setEditingTxId(null);
+    setTxTitle("");
+    setTxAmount("");
+    setPurpose("");
+    setTaxPercentage("");
+    setTaxAmount("");
+    setTaxApplication("exclusive");
+    setPaymentMethod("cash");
+    setTxDate("");
+    setTxEnvelope("");
+  };
+
+  
   const handleCreateTransaction = async (e) => {
     e.preventDefault();
     try {
       let rawInputAmount = parseFloat(txAmount);
-      // Normalize to USD for database persistence if entered during PKR view
       let rawAmount = currency === "PKR" ? rawInputAmount / conversionRate : rawInputAmount;
       
       let calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
@@ -136,32 +182,72 @@ const Dashboard = () => {
         }
       }
 
+      let updateLogs = [];
+      if (editingTxId) {
+        const existingTx = transactions.find((tx) => tx._id === editingTxId);
+        if (existingTx) {
+          const oldAmountNum = Number(existingTx.amount) || 0;
+          const diffAmount = finalAmount - oldAmountNum;
+
+          // Sanitize existing database logs to guarantee flat schema compliance (before, after, diff)
+          const sanitizedExistingLogs = (existingTx.updateLogs || []).map(log => ({
+            before: Number(log.before ?? log.changes?.amount?.before ?? oldAmountNum),
+            after: Number(log.after ?? log.changes?.amount?.after ?? oldAmountNum),
+            diff: Number(log.diff ?? log.changes?.amount?.diff ?? 0),
+            reason: log.reason || "Updated",
+            timestamp: log.timestamp || new Date(),
+          }));
+
+          // Check if any fields were modified
+          const titleChanged = (existingTx.title || "") !== (txTitle || "");
+          const amountChanged = Math.abs(oldAmountNum - finalAmount) > 0.001;
+          const purposeChanged = (existingTx.purpose || "") !== (purpose || "");
+          const paymentChanged = (existingTx.paymentMethod || "cash").toLowerCase() !== (paymentMethod || "cash").toLowerCase();
+
+          if (titleChanged || amountChanged || purposeChanged || paymentChanged) {
+            const newLogEntry = {
+              before: oldAmountNum,
+              after: finalAmount,
+              diff: diffAmount,
+              reason: purpose || "Updated via main form",
+              timestamp: new Date(),
+            };
+            updateLogs = [...sanitizedExistingLogs, newLogEntry];
+          } else {
+            updateLogs = sanitizedExistingLogs;
+          }
+        }
+      }
+
       const transactionData = {
         title: txTitle,
         amount: finalAmount,
         type: txType,
-        envelopeId: txType === 'expense' ? txEnvelope : undefined,
+        envelopeId: txType === 'expense' && txEnvelope ? txEnvelope : undefined,
         paymentMethod: paymentMethod,
-        purpose: purpose,
+        purpose: purpose || undefined,
         taxPercentage: calculatedTaxPercentage || undefined,
         taxAmount: calculatedTaxAmount || undefined,
         taxApplication: taxApplication, 
-        date: txDate || new Date()
+        date: txDate ? new Date(txDate) : new Date(),
+        updateLogs: editingTxId ? updateLogs : undefined
       };
 
-      const response = await addTransaction(transactionData);
-      setTransactions([response.data, ...transactions]);
+      if (editingTxId) {
+        const res = await updateTransaction(editingTxId, transactionData);
+        setTransactions((prev) => prev.map((tx) => (tx._id === editingTxId ? res.data : tx)));
+        setEditingTxId(null);
+      } else {
+        const response = await addTransaction(transactionData);
+        setTransactions([response.data, ...transactions]);
+      }
 
-      setTxTitle('');
-      setTxAmount('');
-      setPurpose('');
-      setTaxPercentage('');
-      setTaxAmount('');
-      setTaxApplication('exclusive');
-      setPaymentMethod('cash');
-      setTxDate('');
+      handleCancelEditTransaction();
+      loadData();
     } catch (error) {
-      console.error('Error creating transaction:', error.response?.data?.message || error.message);
+      console.error('Error saving transaction:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message;
+      alert("Failed to save transaction: " + errorMsg);
     }
   };
 
@@ -176,6 +262,9 @@ const Dashboard = () => {
 
   const handleDeleteTransaction = async (id) => {
     await removeTransaction(id);
+    if (editingTxId === id) {
+      handleCancelEditTransaction();
+    }
     loadData();
   };
 
@@ -204,15 +293,21 @@ const Dashboard = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* Top Control Bar with Currency Switcher Button */}
+        {/* Top Control Bar with Currency Switcher & Live Rate Indicator */}
         <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800 gap-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight">Expense Dashboard</h1>
             <p className="text-xs text-slate-400">Manage your budget, envelopes, and taxes seamlessly.</p>
           </div>
           
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-slate-300">Display Currency:</span>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-[11px] text-slate-400">Live Rate</p>
+              <p className="text-xs font-semibold text-emerald-400">
+                {loading ? "Updating rate..." : `1 USD = ${conversionRate.toFixed(2)} PKR`}
+              </p>
+            </div>
+
             <div className="bg-slate-950 p-1 rounded-lg border border-slate-800 flex gap-1">
               <button
                 type="button"
@@ -243,7 +338,7 @@ const Dashboard = () => {
         {/* Header and Period Filter */}
         <Analysis period={period} setPeriod={setPeriod} />
 
-        {/* Analytics Summary with Currency Prop */}
+        {/* Analytics Summary */}
         <Header 
           totalIncome={totalIncome} 
           totalExpense={totalExpense} 
@@ -289,7 +384,11 @@ const Dashboard = () => {
           setTaxApplication={setTaxApplication}
           handleDeleteTransaction={handleDeleteTransaction}
           currency={currency}
+          conversionRate={conversionRate}
           formatAmount={formatAmount}
+          editingTxId={editingTxId}
+          handleStartEditTransaction={handleStartEditTransaction}
+          handleCancelEditTransaction={handleCancelEditTransaction}
         />
       </div>
     </div>

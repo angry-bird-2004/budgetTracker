@@ -81,6 +81,13 @@ const updateTransaction = async (req, res) => {
     transaction.type = req.body.type || transaction.type;
     transaction.envelopeId = transaction.type === 'expense' ? (req.body.envelopeId || transaction.envelopeId) : undefined;
     transaction.date = req.body.date || transaction.date;
+
+    // New: allow updating payment method, purpose, and tax fields
+    transaction.paymentMethod = req.body.paymentMethod || transaction.paymentMethod;
+    transaction.purpose = req.body.purpose || transaction.purpose;
+    transaction.taxPercentage = req.body.taxPercentage !== undefined ? req.body.taxPercentage : transaction.taxPercentage;
+    transaction.taxAmount = req.body.taxAmount !== undefined ? req.body.taxAmount : transaction.taxAmount;
+    transaction.taxApplication = req.body.taxApplication || transaction.taxApplication;
     
     // Push multiple logs cleanly into the array
     if (req.body.updateLogs) {

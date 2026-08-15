@@ -36,9 +36,14 @@ const Maincontent = ({
   setTaxPercentage,
   taxAmount,
   setTaxAmount,
+  conversionRate,
   handleDeleteTransaction,
-  currency,      // NEW Prop
-  formatAmount,  // NEW Prop
+  currency,
+  formatAmount,
+  // NEW Props for Full Transaction Editing passed from Dashboard
+  editingTxId,
+  handleStartEditTransaction,
+  handleCancelEditTransaction,
 }) => {
   return (
     <>
@@ -86,9 +91,14 @@ const Maincontent = ({
           setTaxAmount={setTaxAmount}
           taxApplication={taxApplication}
           setTaxApplication={setTaxApplication}
+          conversionRate={conversionRate}
           handleDeleteTransaction={handleDeleteTransaction}
           currency={currency}
           formatAmount={formatAmount}
+          // NEW Props forwarded to Transaction component
+          editingTxId={editingTxId}
+          handleStartEditTransaction={handleStartEditTransaction}
+          handleCancelEditTransaction={handleCancelEditTransaction}
         />
       </div>
     </>
