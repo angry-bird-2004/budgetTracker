@@ -1,6 +1,6 @@
 import React from "react";
 
-const Header = ({ totalIncome, totalExpense, totalTax = 0, currency = "USD", formatAmount }) => {
+const Header = ({ totalIncome, totalExpense, totalTax = 0, totalDeducted = 0, currency = "USD", formatAmount }) => {
   const symbol = currency === "PKR" ? "Rs " : "$";
   const netSavings = totalIncome - totalExpense;
 
@@ -23,6 +23,12 @@ const Header = ({ totalIncome, totalExpense, totalTax = 0, currency = "USD", for
           <p className="text-slate-400 text-sm font-medium">Total Tax Paid</p>
           <h3 className="text-3xl font-bold text-amber-400 mt-2">
             {symbol}{formatAmount(totalTax)}
+          </h3>
+        </div>
+        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
+          <p className="text-slate-400 text-sm font-medium">Deducted From Income</p>
+          <h3 className="text-3xl font-bold text-rose-400 mt-2">
+            {symbol}{formatAmount(totalDeducted)}
           </h3>
         </div>
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">

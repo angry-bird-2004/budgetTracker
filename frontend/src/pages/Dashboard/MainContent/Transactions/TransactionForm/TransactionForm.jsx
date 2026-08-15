@@ -17,6 +17,10 @@ const TransactionForm = ({
   envelopes,
   paymentMethod,
   setPaymentMethod,
+  incomeSource,
+  setIncomeSource,
+  transactions,
+  formatAmount,
   purpose,
   setPurpose,
   taxMode,
@@ -131,6 +135,29 @@ const TransactionForm = ({
               onChange={(e) => setPurpose(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white"
             />
+          </div>
+        )}
+
+        {/* Pay From Income Source Field (Expense Only) */}
+        {txType === "expense" && (
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
+              Pay From Income Source
+            </label>
+            <select
+              value={incomeSource || ""}
+              onChange={(e) => setIncomeSource(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white text-xs"
+            >
+              <option value="">Select Income Source (Optional)</option>
+              {transactions
+                .filter((t) => t.type === "income")
+                .map((inc) => (
+                  <option key={inc._id} value={inc._id}>
+                    {inc.title} ({symbol}{formatAmount ? formatAmount(inc.amount) : inc.amount})
+                  </option>
+                ))}
+            </select>
           </div>
         )}
 

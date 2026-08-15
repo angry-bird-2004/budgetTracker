@@ -15,6 +15,8 @@ const Transaction = ({
   setTxEnvelope,
   paymentMethod,
   setPaymentMethod,
+  incomeSource,
+  setIncomeSource,
   purpose,
   setPurpose,
   txDate,
@@ -153,6 +155,10 @@ const Transaction = ({
           envelopes={envelopes}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
+          incomeSource={incomeSource}
+          setIncomeSource={setIncomeSource}
+          transactions={transactions}
+          formatAmount={formatAmount}
           purpose={purpose}
           setPurpose={setPurpose}
           taxMode={taxMode}

@@ -26,7 +26,10 @@ const getTransactions = async (req, res) => {
       query.date = { $gte: startOfYear, $lte: endOfYear };
     }
 
-    const transactions = await Transaction.find(query).populate('envelopeId', 'name').sort({ date: -1 });
+    const transactions = await Transaction.find(query)
+      .populate('envelopeId', 'name')
+      .populate('incomeSource', 'title amount')
+      .sort({ date: -1 });
     res.status(200).json(transactions);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -45,7 +48,8 @@ const createTransaction = async (req, res) => {
       taxPercentage, 
       taxAmount, 
       taxApplication, 
-      date 
+      date,
+      incomeSource
     } = req.body;
 
     const transaction = await Transaction.create({
@@ -54,6 +58,7 @@ const createTransaction = async (req, res) => {
       amount,
       type,
       envelopeId: type === 'expense' ? envelopeId : undefined,
+      incomeSource: type === 'expense' && incomeSource ? incomeSource : undefined,
       paymentMethod,
       purpose,
       taxPercentage,
@@ -63,7 +68,7 @@ const createTransaction = async (req, res) => {
     });
 
     // Populate envelope data before sending response back
-    const populatedTx = await Transaction.findById(transaction._id).populate('envelopeId', 'name');
+    const populatedTx = await Transaction.findById(transaction._id).populate('envelopeId', 'name').populate('incomeSource', 'title amount');
 
     res.status(201).json(populatedTx);
   } catch (error) {
@@ -96,7 +101,7 @@ const updateTransaction = async (req, res) => {
 
     await transaction.save();
 
-    const updated = await Transaction.findById(transaction._id).populate('envelopeId', 'name');
+    const updated = await Transaction.findById(transaction._id).populate('envelopeId', 'name').populate('incomeSource', 'title amount');
     res.status(200).json(updated);
   } catch (error) {
     res.status(400).json({ message: error.message });

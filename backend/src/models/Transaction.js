@@ -16,6 +16,7 @@ const transactionSchema = new mongoose.Schema({
   envelopeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Envelope' },
   paymentMethod: { type: String, default: 'cash' },
   purpose: { type: String },
+  incomeSource: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
   taxPercentage: { type: Number },
   taxAmount: { type: Number },
   taxApplication: { type: String }, // 'exclusive' or 'inclusive'

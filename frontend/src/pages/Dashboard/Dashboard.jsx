@@ -44,14 +44,17 @@ const Dashboard = () => {
   const [txType, setTxType] = useState("expense");
   const [txEnvelope, setTxEnvelope] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [incomeSource, setIncomeSource] = useState("");
   const [purpose, setPurpose] = useState("");
   const [txDate, setTxDate] = useState("");
   const [taxPercentage, setTaxPercentage] = useState("");
   const [taxAmount, setTaxAmount] = useState("");
   const [taxApplication, setTaxApplication] = useState("exclusive");
-  
+
   // State for tracking transaction being edited
   const [editingTxId, setEditingTxId] = useState(null);
+  // Dropdown visibility for income sources selector
+  const [showIncomeDropdown, setShowIncomeDropdown] = useState(false);
 
   const loadData = async () => {
     try {
@@ -72,7 +75,10 @@ const Dashboard = () => {
     e.preventDefault();
     if (!envName || !envAmount) return;
 
-    const baseAmountInput = currency === "PKR" ? Number(envAmount) / conversionRate : Number(envAmount);
+    const baseAmountInput =
+      currency === "PKR"
+        ? Number(envAmount) / conversionRate
+        : Number(envAmount);
 
     if (editingEnvId) {
       await updateEnvelope(editingEnvId, {
@@ -94,9 +100,10 @@ const Dashboard = () => {
     if (envelopeToEdit) {
       setEditingEnvId(envelopeToEdit._id);
       setEnvName(envelopeToEdit.name);
-      const displayedVal = currency === "PKR" 
-        ? envelopeToEdit.allocatedAmount * conversionRate 
-        : envelopeToEdit.allocatedAmount;
+      const displayedVal =
+        currency === "PKR"
+          ? envelopeToEdit.allocatedAmount * conversionRate
+          : envelopeToEdit.allocatedAmount;
       setEnvAmount(displayedVal.toFixed(2));
     }
   };
@@ -115,19 +122,20 @@ const Dashboard = () => {
   const handleStartEditTransaction = (tx) => {
     setEditingTxId(tx._id);
     setTxTitle(tx.title || "");
-    
+
     // Display amount based on current currency view
-    const displayedAmount = currency === "PKR" ? (tx.amount * conversionRate) : tx.amount;
+    const displayedAmount =
+      currency === "PKR" ? tx.amount * conversionRate : tx.amount;
     setTxAmount(displayedAmount.toFixed(2));
-    
+
     setTxType(tx.type || "expense");
     setTxEnvelope(tx.envelopeId?._id || tx.envelopeId || "");
-    
-    // Ensure payment method correctly captures card, cash, or other saved values
-    setPaymentMethod(tx.paymentMethod ? tx.paymentMethod.toLowerCase() : "cash");
-    
+    setPaymentMethod(
+      tx.paymentMethod ? tx.paymentMethod.toLowerCase() : "cash",
+    );
+    setIncomeSource(tx.incomeSource?._id || tx.incomeSource || "");
     setPurpose(tx.purpose || "");
-    
+
     // Format date for standard <input type="date" /> (YYYY-MM-DD)
     if (tx.date) {
       const formattedDate = new Date(tx.date).toISOString().split("T")[0];
@@ -137,8 +145,11 @@ const Dashboard = () => {
     }
 
     setTaxPercentage(tx.taxPercentage ?? "");
-    
-    const displayedTax = currency === "PKR" && tx.taxAmount ? (tx.taxAmount * conversionRate) : (tx.taxAmount || "");
+
+    const displayedTax =
+      currency === "PKR" && tx.taxAmount
+        ? tx.taxAmount * conversionRate
+        : tx.taxAmount || "";
     setTaxAmount(displayedTax ?? "");
     setTaxApplication(tx.taxApplication || "exclusive");
   };
@@ -153,32 +164,40 @@ const Dashboard = () => {
     setTaxAmount("");
     setTaxApplication("exclusive");
     setPaymentMethod("cash");
+    setIncomeSource("");
     setTxDate("");
     setTxEnvelope("");
   };
 
-  
+  // Unified handler to create a new transaction OR update an existing one with update logging
   const handleCreateTransaction = async (e) => {
     e.preventDefault();
     try {
       let rawInputAmount = parseFloat(txAmount);
-      let rawAmount = currency === "PKR" ? rawInputAmount / conversionRate : rawInputAmount;
-      
-      let calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
-      if (currency === "PKR" && taxAmount) calculatedTaxAmount /= conversionRate;
+      let rawAmount =
+        currency === "PKR" ? rawInputAmount / conversionRate : rawInputAmount;
 
-      let calculatedTaxPercentage = taxPercentage ? parseFloat(taxPercentage) : 0;
+      let calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
+      if (currency === "PKR" && taxAmount)
+        calculatedTaxAmount /= conversionRate;
+
+      let calculatedTaxPercentage = taxPercentage
+        ? parseFloat(taxPercentage)
+        : 0;
       let finalAmount = rawAmount;
 
       if (calculatedTaxPercentage > 0 && !taxAmount) {
         calculatedTaxAmount = (rawAmount * calculatedTaxPercentage) / 100;
       }
 
-      if (txType === 'expense' && (calculatedTaxAmount > 0 || calculatedTaxPercentage > 0)) {
-        if (taxApplication === 'exclusive') {
+      if (
+        txType === "expense" &&
+        (calculatedTaxAmount > 0 || calculatedTaxPercentage > 0)
+      ) {
+        if (taxApplication === "exclusive") {
           finalAmount = rawAmount + calculatedTaxAmount;
-        } else if (taxApplication === 'inclusive') {
-          finalAmount = rawAmount; 
+        } else if (taxApplication === "inclusive") {
+          finalAmount = rawAmount;
         }
       }
 
@@ -189,22 +208,38 @@ const Dashboard = () => {
           const oldAmountNum = Number(existingTx.amount) || 0;
           const diffAmount = finalAmount - oldAmountNum;
 
-          // Sanitize existing database logs to guarantee flat schema compliance (before, after, diff)
-          const sanitizedExistingLogs = (existingTx.updateLogs || []).map(log => ({
-            before: Number(log.before ?? log.changes?.amount?.before ?? oldAmountNum),
-            after: Number(log.after ?? log.changes?.amount?.after ?? oldAmountNum),
-            diff: Number(log.diff ?? log.changes?.amount?.diff ?? 0),
-            reason: log.reason || "Updated",
-            timestamp: log.timestamp || new Date(),
-          }));
+          const sanitizedExistingLogs = (existingTx.updateLogs || []).map(
+            (log) => ({
+              before: Number(
+                log.before ?? log.changes?.amount?.before ?? oldAmountNum,
+              ),
+              after: Number(
+                log.after ?? log.changes?.amount?.after ?? oldAmountNum,
+              ),
+              diff: Number(log.diff ?? log.changes?.amount?.diff ?? 0),
+              reason: log.reason || "Updated",
+              timestamp: log.timestamp || new Date(),
+            }),
+          );
 
-          // Check if any fields were modified
           const titleChanged = (existingTx.title || "") !== (txTitle || "");
           const amountChanged = Math.abs(oldAmountNum - finalAmount) > 0.001;
           const purposeChanged = (existingTx.purpose || "") !== (purpose || "");
-          const paymentChanged = (existingTx.paymentMethod || "cash").toLowerCase() !== (paymentMethod || "cash").toLowerCase();
+          const paymentChanged =
+            (existingTx.paymentMethod || "cash").toLowerCase() !==
+            (paymentMethod || "cash").toLowerCase();
+          const incomeSourceChanged =
+            String(
+              existingTx.incomeSource?._id || existingTx.incomeSource || "",
+            ) !== String(incomeSource || "");
 
-          if (titleChanged || amountChanged || purposeChanged || paymentChanged) {
+          if (
+            titleChanged ||
+            amountChanged ||
+            purposeChanged ||
+            paymentChanged ||
+            incomeSourceChanged
+          ) {
             const newLogEntry = {
               before: oldAmountNum,
               after: finalAmount,
@@ -223,21 +258,50 @@ const Dashboard = () => {
         title: txTitle,
         amount: finalAmount,
         type: txType,
-        envelopeId: txType === 'expense' && txEnvelope ? txEnvelope : undefined,
+        envelopeId: txType === "expense" && txEnvelope ? txEnvelope : undefined,
         paymentMethod: paymentMethod,
+        incomeSource:
+          txType === "expense" && incomeSource ? incomeSource : undefined,
         purpose: purpose || undefined,
         taxPercentage: calculatedTaxPercentage || undefined,
         taxAmount: calculatedTaxAmount || undefined,
-        taxApplication: taxApplication, 
+        taxApplication: taxApplication,
         date: txDate ? new Date(txDate) : new Date(),
-        updateLogs: editingTxId ? updateLogs : undefined
+        updateLogs: editingTxId ? updateLogs : undefined,
       };
 
       if (editingTxId) {
         const res = await updateTransaction(editingTxId, transactionData);
-        setTransactions((prev) => prev.map((tx) => (tx._id === editingTxId ? res.data : tx)));
+        setTransactions((prev) =>
+          prev.map((tx) => (tx._id === editingTxId ? res.data : tx)),
+        );
         setEditingTxId(null);
       } else {
+        // If user selected an income source to deduct from, validate remaining funds (do not mutate original income)
+        if (
+          transactionData.type === "expense" &&
+          transactionData.incomeSource
+        ) {
+          const incomeId = transactionData.incomeSource;
+          const incomeTx = transactions.find((t) => t._id === incomeId) || null;
+          const spent = transactions
+            .filter(
+              (t) =>
+                t.type === "expense" &&
+                (t.incomeSource?._id === incomeId ||
+                  t.incomeSource === incomeId),
+            )
+            .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+          const incomeAmount = incomeTx ? Number(incomeTx.amount || 0) : 0;
+          const remaining = incomeAmount - spent;
+          if (remaining < finalAmount) {
+            alert(
+              "Selected income source does not have sufficient remaining funds to cover this expense.",
+            );
+            return;
+          }
+        }
+
         const response = await addTransaction(transactionData);
         setTransactions([response.data, ...transactions]);
       }
@@ -245,8 +309,11 @@ const Dashboard = () => {
       handleCancelEditTransaction();
       loadData();
     } catch (error) {
-      console.error('Error saving transaction:', error);
-      const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message;
+      console.error("Error saving transaction:", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message;
       alert("Failed to save transaction: " + errorMsg);
     }
   };
@@ -254,7 +321,9 @@ const Dashboard = () => {
   const handleUpdateTransaction = async (id, updateData) => {
     try {
       const res = await updateTransaction(id, updateData);
-      setTransactions((prev) => prev.map((tx) => (tx._id === id ? res.data : tx)));
+      setTransactions((prev) =>
+        prev.map((tx) => (tx._id === id ? res.data : tx)),
+      );
     } catch (error) {
       console.error("Failed to update transaction:", error);
     }
@@ -272,7 +341,7 @@ const Dashboard = () => {
   const totalIncome = transactions
     .filter((t) => t.type === "income")
     .reduce((acc, t) => acc + t.amount, 0);
-  
+
   const totalExpense = transactions
     .filter((t) => t.type === "expense")
     .reduce((acc, t) => acc + t.amount, 0);
@@ -292,19 +361,24 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
-        
         {/* Top Control Bar with Currency Switcher & Live Rate Indicator */}
         <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800 gap-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Expense Dashboard</h1>
-            <p className="text-xs text-slate-400">Manage your budget, envelopes, and taxes seamlessly.</p>
+            <h1 className="text-xl font-bold tracking-tight">
+              Expense Dashboard
+            </h1>
+            <p className="text-xs text-slate-400">
+              Manage your budget, envelopes, and taxes seamlessly.
+            </p>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="text-right">
               <p className="text-[11px] text-slate-400">Live Rate</p>
               <p className="text-xs font-semibold text-emerald-400">
-                {loading ? "Updating rate..." : `1 USD = ${conversionRate.toFixed(2)} PKR`}
+                {loading
+                  ? "Updating rate..."
+                  : `1 USD = ${conversionRate.toFixed(2)} PKR`}
               </p>
             </div>
 
@@ -313,8 +387,8 @@ const Dashboard = () => {
                 type="button"
                 onClick={() => setCurrency("USD")}
                 className={`px-3 py-1 rounded text-xs font-semibold transition ${
-                  currency === "USD" 
-                    ? "bg-emerald-600 text-white shadow" 
+                  currency === "USD"
+                    ? "bg-emerald-600 text-white shadow"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -324,13 +398,97 @@ const Dashboard = () => {
                 type="button"
                 onClick={() => setCurrency("PKR")}
                 className={`px-3 py-1 rounded text-xs font-semibold transition ${
-                  currency === "PKR" 
-                    ? "bg-emerald-600 text-white shadow" 
+                  currency === "PKR"
+                    ? "bg-emerald-600 text-white shadow"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
                 PKR (Rs)
               </button>
+            </div>
+
+            {/* Income Sources Dropdown */}
+            <div className="flex items-center">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowIncomeDropdown((s) => !s)}
+                  className="px-3 py-1 rounded text-xs font-semibold transition bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700"
+                >
+                  {incomeSource ? "Change Source" : "Link Income Source"}
+                </button>
+
+                {showIncomeDropdown && (
+                  <div className="absolute right-0 mt-2 w-72 bg-slate-950 border border-slate-800 rounded shadow-2xl z-50 overflow-hidden">
+                    <div className="p-2 text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800 bg-slate-900/50">
+                      Available Income Sources
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {transactions.filter((t) => t.type === "income")
+                        .length === 0 ? (
+                        <div className="p-4 text-xs text-slate-500 italic">
+                          No income sources found
+                        </div>
+                      ) : (
+                        transactions
+                          .filter((t) => t.type === "income")
+                          .map((inc) => {
+                            // Calculate balance: Original Amount - Sum of expenses linked to this ID
+                            const spent = transactions
+                              .filter(
+                                (t) =>
+                                  t.incomeSource?._id === inc._id ||
+                                  t.incomeSource === inc._id,
+                              )
+                              .reduce((acc, t) => acc + t.amount, 0);
+                            const remaining = inc.amount - spent;
+
+                            return (
+                              <button
+                                key={inc._id}
+                                onClick={() => {
+                                  setIncomeSource(inc._id);
+                                  setShowIncomeDropdown(false);
+                                }}
+                                className="w-full text-left p-3 hover:bg-slate-900 border-b border-slate-900 last:border-0 transition"
+                              >
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-sm font-medium text-slate-200">
+                                    {inc.title}
+                                  </span>
+                                  <span className="text-[10px] text-emerald-500 font-bold">
+                                    {currency === "PKR" ? "Rs " : "$"}
+                                    {formatAmount(remaining)} left
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  Total: {currency === "PKR" ? "Rs " : "$"}
+                                  {formatAmount(inc.amount)}
+                                </div>
+                              </button>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected income badge */}
+              {incomeSource && (
+                <div className="ml-3 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-900 flex items-center gap-2">
+                  <span>
+                    {transactions.find((t) => t._id === incomeSource)?.title ||
+                      "Source"}
+                  </span>
+                  <button
+                    onClick={() => setIncomeSource("")}
+                    className="hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -339,10 +497,13 @@ const Dashboard = () => {
         <Analysis period={period} setPeriod={setPeriod} />
 
         {/* Analytics Summary */}
-        <Header 
-          totalIncome={totalIncome} 
-          totalExpense={totalExpense} 
-          totalTax={totalTax} 
+        <Header
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
+          totalTax={totalTax}
+          totalDeducted={transactions
+            .filter((t) => t.type === "expense" && t.incomeSource)
+            .reduce((acc, t) => acc + Number(t.amount || 0), 0)}
           currency={currency}
           formatAmount={formatAmount}
         />
@@ -372,6 +533,8 @@ const Dashboard = () => {
           setTxEnvelope={setTxEnvelope}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
+          incomeSource={incomeSource}
+          setIncomeSource={setIncomeSource}
           purpose={purpose}
           setPurpose={setPurpose}
           txDate={txDate}
