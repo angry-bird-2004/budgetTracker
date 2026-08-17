@@ -359,12 +359,12 @@ const Dashboard = () => {
     }, 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-6 w-full max-w-full overflow-x-hidden">
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 w-full">
         {/* Top Control Bar with Currency Switcher & Live Rate Indicator */}
-        <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800 gap-4">
+        <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center bg-slate-900 p-4 sm:p-5 rounded-xl border border-slate-800 gap-4 w-full">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">
               Expense Dashboard
             </h1>
             <p className="text-xs text-slate-400">
@@ -372,8 +372,8 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right">
+          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3 sm:gap-4">
+            <div className="text-left lg:text-right">
               <p className="text-[11px] text-slate-400">Live Rate</p>
               <p className="text-xs font-semibold text-emerald-400">
                 {loading
@@ -386,7 +386,7 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={() => setCurrency("USD")}
-                className={`px-3 py-1 rounded text-xs font-semibold transition ${
+                className={`px-3 py-1.5 sm:py-1 rounded text-xs font-semibold transition ${
                   currency === "USD"
                     ? "bg-emerald-600 text-white shadow"
                     : "text-slate-400 hover:text-white"
@@ -397,7 +397,7 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={() => setCurrency("PKR")}
-                className={`px-3 py-1 rounded text-xs font-semibold transition ${
+                className={`px-3 py-1.5 sm:py-1 rounded text-xs font-semibold transition ${
                   currency === "PKR"
                     ? "bg-emerald-600 text-white shadow"
                     : "text-slate-400 hover:text-white"
@@ -408,18 +408,18 @@ const Dashboard = () => {
             </div>
 
             {/* Income Sources Dropdown */}
-            <div className="flex items-center">
+            <div className="flex items-center w-full sm:w-auto justify-between sm:justify-start">
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowIncomeDropdown((s) => !s)}
-                  className="px-3 py-1 rounded text-xs font-semibold transition bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700"
+                  className="px-3 py-2 sm:py-1 rounded text-xs font-semibold transition bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 w-full sm:w-auto text-center"
                 >
                   {incomeSource ? "Change Source" : "Link Income Source"}
                 </button>
 
                 {showIncomeDropdown && (
-                  <div className="absolute right-0 mt-2 w-72 bg-slate-950 border border-slate-800 rounded shadow-2xl z-50 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-slate-950 border border-slate-800 rounded-lg shadow-2xl z-50 overflow-hidden max-w-[90vw]">
                     <div className="p-2 text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800 bg-slate-900/50">
                       Available Income Sources
                     </div>
@@ -477,8 +477,8 @@ const Dashboard = () => {
 
               {/* Selected income badge */}
               {incomeSource && (
-                <div className="ml-3 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-900 flex items-center gap-2">
-                  <span>
+                <div className="ml-2 sm:ml-3 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-900 flex items-center gap-2 shrink-0">
+                  <span className="truncate max-w-[100px] sm:max-w-xs">
                     {transactions.find((t) => t._id === incomeSource)?.title ||
                       "Source"}
                   </span>
