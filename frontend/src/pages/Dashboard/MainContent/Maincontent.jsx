@@ -42,17 +42,19 @@ const Maincontent = ({
   editingTxId,
   handleStartEditTransaction,
   handleCancelEditTransaction,
-  leftColumnRef,
+  transactionFormRef,
+  envelopeFormRef,
 }) => {
   const [expandedTxId, setExpandedTxId] = useState(null);
+  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState(null);
   const symbol = currency === "PKR" ? "Rs " : "$";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-full overflow-x-hidden">
       {/* Left Column: Forms (Transaction & Envelope Management) */}
-      <div ref={leftColumnRef} className="space-y-6 lg:col-span-1 w-full min-w-0">
+      <div className="space-y-6 lg:col-span-1 w-full min-w-0">
         {/* Transaction Form Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
+        <div ref={transactionFormRef} className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-semibold tracking-wide text-slate-200">
               {editingTxId ? "Edit Transaction" : "New Transaction"}
@@ -295,7 +297,7 @@ const Maincontent = ({
         </div>
 
         {/* Envelope Manager Form */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
+        <div ref={envelopeFormRef} className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
           <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4">
             {editingEnvId ? "Edit Envelope" : "Create Envelope"}
           </h2>
@@ -348,38 +350,100 @@ const Maincontent = ({
             <p className="text-xs text-slate-500">No envelopes created yet.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {envelopes.map((env) => (
-                <div
-                  key={env._id}
-                  className="bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg flex justify-between items-center gap-2"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">
-                      {env.name}
-                    </p>
-                    <p className="text-[11px] sm:text-xs text-slate-400 truncate">
-                      Allocated: {symbol}
-                      {formatAmount(env.allocatedAmount)}
-                    </p>
+              {envelopes.map((env) => {
+                const envelopeExpenses = transactions.filter(
+                  (t) =>
+                    t.type === "expense" &&
+                    ((t.envelopeId && t.envelopeId._id === env._id) ||
+                      t.envelopeId === env._id),
+                );
+                const consumed = envelopeExpenses.reduce(
+                  (acc, t) => acc + Number(t.amount || 0),
+                  0,
+                );
+
+                const isOpen = selectedEnvelopeId === env._id;
+
+                return (
+                  <div
+                    key={env._id}
+                    onClick={() => setSelectedEnvelopeId(isOpen ? null : env._id)}
+                    className={`bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg cursor-pointer ${
+                      isOpen ? "ring-1 ring-emerald-500" : ""
+                    }`}
+                  >
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">
+                          {env.name}
+                        </p>
+                        <p className="text-[11px] sm:text-xs text-slate-400 truncate">
+                          Allocated: {symbol}
+                          {formatAmount(env.allocatedAmount)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateEnvelope(env._id);
+                          }}
+                          className="text-xs text-emerald-400 hover:underline px-1 py-0.5"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEnvelope(env._id);
+                          }}
+                          className="text-xs text-rose-400 hover:underline px-1 py-0.5"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {isOpen && (
+                      <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-300 space-y-2">
+                        <p>
+                          <strong className="text-slate-400">Allocated:</strong> {symbol}
+                          {formatAmount(env.allocatedAmount)}
+                        </p>
+                        <p>
+                          <strong className="text-slate-400">Consumed:</strong> {symbol}
+                          {formatAmount(consumed)}
+                        </p>
+                        <p>
+                          <strong className="text-slate-400">Remaining:</strong> {symbol}
+                          {formatAmount((env.allocatedAmount || 0) - consumed)}
+                        </p>
+
+                        <div className="pt-2">
+                          <p className="font-semibold text-slate-400 mb-2">Expenses in this envelope:</p>
+                          {envelopeExpenses.length === 0 ? (
+                            <p className="text-xs text-slate-500">No expenses linked to this envelope yet.</p>
+                          ) : (
+                            <div className="space-y-2 max-h-56 overflow-y-auto">
+                              {envelopeExpenses.map((t) => (
+                                <div key={t._id} className="flex justify-between items-center">
+                                  <div className="min-w-0 pr-3">
+                                    <p className="text-xs font-medium text-slate-200 truncate">{t.title}</p>
+                                    <p className="text-[10px] text-slate-400">{t.date ? new Date(t.date).toLocaleDateString() : "-"}</p>
+                                  </div>
+                                  <div className="text-xs font-semibold text-rose-400">-{symbol}{formatAmount(t.amount)}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateEnvelope(env._id)}
-                      className="text-xs text-emerald-400 hover:underline px-1 py-0.5"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteEnvelope(env._id)}
-                      className="text-xs text-rose-400 hover:underline px-1 py-0.5"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

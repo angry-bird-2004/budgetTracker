@@ -56,8 +56,9 @@ const Dashboard = () => {
   // Dropdown visibility for income sources selector
   const [showIncomeDropdown, setShowIncomeDropdown] = useState(false);
 
-  // Ref to left column (forms) to scroll into view when editing
-  const leftColumnRef = useRef(null);
+  // Refs to specific forms so we can scroll to the appropriate form
+  const transactionFormRef = useRef(null);
+  const envelopeFormRef = useRef(null);
 
   const loadData = async () => {
     try {
@@ -108,9 +109,9 @@ const Dashboard = () => {
           ? envelopeToEdit.allocatedAmount * conversionRate
           : envelopeToEdit.allocatedAmount;
       setEnvAmount(displayedVal.toFixed(2));
-      // Scroll to left column form when editing envelope
+      // Scroll to envelope form when editing envelope
       setTimeout(() => {
-        leftColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        envelopeFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 60);
     }
   };
@@ -160,9 +161,9 @@ const Dashboard = () => {
     setTaxAmount(displayedTax ?? "");
     setTaxApplication(tx.taxApplication || "exclusive");
 
-    // Scroll to left column form so user can update immediately
+    // Scroll to transaction form so user can update immediately
     setTimeout(() => {
-      leftColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      transactionFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
   };
 
@@ -420,90 +421,87 @@ const Dashboard = () => {
             </div>
 
             {/* Income Sources Dropdown */}
-            <div className="flex items-center w-full sm:w-auto justify-between sm:justify-start">
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowIncomeDropdown((s) => !s)}
-                  className="px-3 py-2 sm:py-1 rounded text-xs font-semibold transition bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 w-full sm:w-auto text-center"
-                >
-                  {incomeSource ? "Change Source" : "Link Income Source"}
-                </button>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center w-full gap-2 sm:gap-3">
+  <div className="relative w-full sm:w-auto">
+    <button
+      type="button"
+      onClick={() => setShowIncomeDropdown((s) => !s)}
+      className="px-3 py-2 sm:py-1 rounded text-xs font-semibold transition bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 w-full sm:w-auto text-center"
+    >
+      {incomeSource ? "Change Source" : "Link Income Source"}
+    </button>
 
-                {showIncomeDropdown && (
-                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-slate-950 border border-slate-800 rounded-lg shadow-2xl z-50 overflow-hidden max-w-[90vw]">
-                    <div className="p-2 text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800 bg-slate-900/50">
-                      Available Income Sources
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      {transactions.filter((t) => t.type === "income")
-                        .length === 0 ? (
-                        <div className="p-4 text-xs text-slate-500 italic">
-                          No income sources found
-                        </div>
-                      ) : (
-                        transactions
-                          .filter((t) => t.type === "income")
-                          .map((inc) => {
-                            // Calculate balance: Original Amount - Sum of expenses linked to this ID
-                            const spent = transactions
-                              .filter(
-                                (t) =>
-                                  t.incomeSource?._id === inc._id ||
-                                  t.incomeSource === inc._id,
-                              )
-                              .reduce((acc, t) => acc + t.amount, 0);
-                            const remaining = inc.amount - spent;
-
-                            return (
-                              <button
-                                key={inc._id}
-                                type="button"
-                                onClick={() => {
-                                  setIncomeSource(inc._id);
-                                  setShowIncomeDropdown(false);
-                                }}
-                                className="w-full text-left p-3 hover:bg-slate-900 border-b border-slate-900 last:border-0 transition"
-                              >
-                                <div className="flex justify-between items-center mb-1">
-                                  <span className="text-sm font-medium text-slate-200">
-                                    {inc.title}
-                                  </span>
-                                  <span className="text-[10px] text-emerald-500 font-bold">
-                                    {currency === "PKR" ? "Rs " : "$"}
-                                    {formatAmount(remaining)} left
-                                  </span>
-                                </div>
-                                <div className="text-[10px] text-slate-500">
-                                  Total: {currency === "PKR" ? "Rs " : "$"}
-                                  {formatAmount(inc.amount)}
-                                </div>
-                              </button>
-                            );
-                          })
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Selected income badge */}
-              {incomeSource && (
-                <div className="ml-2 sm:ml-3 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-900 flex items-center gap-2 shrink-0">
-                  <span className="truncate max-w-[100px] sm:max-w-xs">
-                    {transactions.find((t) => t._id === incomeSource)?.title ||
-                      "Source"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIncomeSource("")}
-                    className="hover:text-white"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
+    {showIncomeDropdown && (
+      <div className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-80 bg-slate-950 border border-slate-800 rounded-lg shadow-2xl z-50 overflow-hidden max-w-full">
+        <div className="p-2 text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800 bg-slate-900/50">
+          Available Income Sources
+        </div>
+        <div className="max-h-60 overflow-y-auto">
+          {transactions.filter((t) => t.type === "income").length === 0 ? (
+            <div className="p-4 text-xs text-slate-500 italic">
+              No income sources found
             </div>
+          ) : (
+            transactions
+              .filter((t) => t.type === "income")
+              .map((inc) => {
+                const spent = transactions
+                  .filter(
+                    (t) =>
+                      t.incomeSource?._id === inc._id ||
+                      t.incomeSource === inc._id
+                  )
+                  .reduce((acc, t) => acc + t.amount, 0);
+                const remaining = inc.amount - spent;
+
+                return (
+                  <button
+                    key={inc._id}
+                    type="button"
+                    onClick={() => {
+                      setIncomeSource(inc._id);
+                      setShowIncomeDropdown(false);
+                    }}
+                    className="w-full text-left p-3 hover:bg-slate-900 border-b border-slate-900 last:border-0 transition"
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-slate-200 truncate pr-2">
+                        {inc.title}
+                      </span>
+                      <span className="text-[10px] text-emerald-500 font-bold shrink-0">
+                        {currency === "PKR" ? "Rs " : "$"}
+                        {formatAmount(remaining)} left
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      Total: {currency === "PKR" ? "Rs " : "$"}
+                      {formatAmount(inc.amount)}
+                    </div>
+                  </button>
+                );
+              })
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Selected income badge */}
+  {incomeSource && (
+    <div className="px-3 py-1.5 rounded-lg sm:rounded-full text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-900 flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto shrink-0">
+      <span className="truncate max-w-[200px] sm:max-w-xs">
+        {transactions.find((t) => t._id === incomeSource)?.title || "Source"}
+      </span>
+      <button
+        type="button"
+        onClick={() => setIncomeSource("")}
+        className="hover:text-white p-1"
+      >
+        ✕
+      </button>
+    </div>
+  )}
+</div>
           </div>
         </div>
 
@@ -566,7 +564,8 @@ const Dashboard = () => {
           editingTxId={editingTxId}
           handleStartEditTransaction={handleStartEditTransaction}
           handleCancelEditTransaction={handleCancelEditTransaction}
-          leftColumnRef={leftColumnRef}
+          transactionFormRef={transactionFormRef}
+          envelopeFormRef={envelopeFormRef}
         />
       </div>
     </div>
