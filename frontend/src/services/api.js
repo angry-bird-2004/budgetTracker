@@ -10,11 +10,21 @@ const API = axios.create({ baseURL: API_URL });
 
 // This attaches the token to every request automatically
 API.interceptors.request.use((config) => {
-  const userInfo = localStorage.getItem('userInfo');
-  if (userInfo) {
-    const { token } = JSON.parse(userInfo);
-    config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const userInfo = localStorage.getItem('userInfo');
+    if (!userInfo) return config;
+
+    const parsed = JSON.parse(userInfo);
+    const token = parsed?.token;
+
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (error) {
+    localStorage.removeItem('userInfo');
   }
+
   return config;
 });
 
