@@ -1,7 +1,12 @@
 // frontend/src/services/api.js
 import axios from 'axios';
 
-const API = axios.create({ baseURL: 'http://localhost:5000/api' });
+const API_URL = import.meta.env.VITE_API_URL ||
+  (window.location.hostname === 'localhost'
+    ? 'http://localhost:5000/api'
+    : '/api');
+
+const API = axios.create({ baseURL: API_URL });
 
 // This attaches the token to every request automatically
 API.interceptors.request.use((config) => {
@@ -21,7 +26,7 @@ export const registerAPI = (data) => API.post('/auth/register', data);
 export const fetchEnvelopes = () => API.get('/envelopes');
 export const addEnvelope = (data) => API.post('/envelopes', data);
 export const removeEnvelope = (id) => API.delete(`/envelopes/${id}`);
-export const postFill = (data) => api.post('/transactions/fill', data);
+export const postFill = (data) => API.post('/transactions/fill', data);
 export const updateEnvelope = (id, data) => API.put(`/envelopes/${id}`, data);
 
 export const updateTransaction = (id, data) => API.put(`/transactions/${id}`, data);
