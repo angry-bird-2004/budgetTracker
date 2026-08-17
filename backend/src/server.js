@@ -18,5 +18,8 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/envelopes', require('./routes/envelopeRoutes'));
 app.use('/api/transactions', require('./routes/transactionRoutes'));
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Backend server running on port http://localhost:${PORT}`));
+// const PORT = process.env.PORT || 5000;
+// app.listen(PORT, () => console.log(`Backend server running on port http://localhost:${PORT}`));
+
+
+module.exports = app;
