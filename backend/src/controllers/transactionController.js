@@ -26,7 +26,10 @@ const getTransactions = async (req, res) => {
       query.date = { $gte: startOfYear, $lte: endOfYear };
     }
 
-    const transactions = await Transaction.find(query).populate('envelopeId', 'name').sort({ date: -1 });
+    const transactions = await Transaction.find(query)
+      .populate('envelopeId', 'name')
+      .populate('incomeSource', 'title amount')
+      .sort({ date: -1 });
     res.status(200).json(transactions);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -35,16 +38,39 @@ const getTransactions = async (req, res) => {
 
 const createTransaction = async (req, res) => {
   try {
-    const { title, amount, type, envelopeId, date } = req.body;
+    const { 
+      title, 
+      amount, 
+      type, 
+      envelopeId, 
+      paymentMethod, 
+      purpose, 
+      taxPercentage, 
+      taxAmount, 
+      taxApplication, 
+      date,
+      incomeSource
+    } = req.body;
+
     const transaction = await Transaction.create({
       userId: req.user._id,
       title,
       amount,
       type,
       envelopeId: type === 'expense' ? envelopeId : undefined,
+      incomeSource: type === 'expense' && incomeSource ? incomeSource : undefined,
+      paymentMethod,
+      purpose,
+      taxPercentage,
+      taxAmount,
+      taxApplication,
       date: date || Date.now()
     });
-    res.status(201).json(transaction);
+
+    // Populate envelope data before sending response back
+    const populatedTx = await Transaction.findById(transaction._id).populate('envelopeId', 'name').populate('incomeSource', 'title amount');
+
+    res.status(201).json(populatedTx);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -61,7 +87,21 @@ const updateTransaction = async (req, res) => {
     transaction.envelopeId = transaction.type === 'expense' ? (req.body.envelopeId || transaction.envelopeId) : undefined;
     transaction.date = req.body.date || transaction.date;
 
-    const updated = await transaction.save();
+    // New: allow updating payment method, purpose, and tax fields
+    transaction.paymentMethod = req.body.paymentMethod || transaction.paymentMethod;
+    transaction.purpose = req.body.purpose || transaction.purpose;
+    transaction.taxPercentage = req.body.taxPercentage !== undefined ? req.body.taxPercentage : transaction.taxPercentage;
+    transaction.taxAmount = req.body.taxAmount !== undefined ? req.body.taxAmount : transaction.taxAmount;
+    transaction.taxApplication = req.body.taxApplication || transaction.taxApplication;
+    
+    // Push multiple logs cleanly into the array
+    if (req.body.updateLogs) {
+      transaction.updateLogs = req.body.updateLogs;
+    }
+
+    await transaction.save();
+
+    const updated = await Transaction.findById(transaction._id).populate('envelopeId', 'name').populate('incomeSource', 'title amount');
     res.status(200).json(updated);
   } catch (error) {
     res.status(400).json({ message: error.message });
