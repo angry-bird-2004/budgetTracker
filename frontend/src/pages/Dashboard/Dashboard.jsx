@@ -9,6 +9,7 @@ import {
   removeTransaction,
   updateTransaction,
 } from "../../services/api";
+import Currency from "./Currency/Currency";
 import Analysis from "./Analysis/Analysis";
 import Header from "./Header/Header";
 import Maincontent from "./MainContent/Maincontent";
@@ -111,7 +112,10 @@ const Dashboard = () => {
       setEnvAmount(displayedVal.toFixed(2));
       // Scroll to envelope form when editing envelope
       setTimeout(() => {
-        envelopeFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        envelopeFormRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }, 60);
     }
   };
@@ -163,7 +167,10 @@ const Dashboard = () => {
 
     // Scroll to transaction form so user can update immediately
     setTimeout(() => {
-      transactionFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      transactionFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }, 60);
   };
 
@@ -375,135 +382,18 @@ const Dashboard = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-6 w-full max-w-full overflow-x-hidden">
       <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 w-full">
         {/* Top Control Bar with Currency Switcher & Live Rate Indicator */}
-        <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center bg-slate-900 p-4 sm:p-5 rounded-xl border border-slate-800 gap-4 w-full">
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight">
-              Expense Dashboard
-            </h1>
-            <p className="text-xs text-slate-400">
-              Manage your budget, envelopes, and taxes seamlessly.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3 sm:gap-4">
-            <div className="text-left lg:text-right">
-              <p className="text-[11px] text-slate-400">Live Rate</p>
-              <p className="text-xs font-semibold text-emerald-400">
-                {loading
-                  ? "Updating rate..."
-                  : `1 USD = ${conversionRate.toFixed(2)} PKR`}
-              </p>
-            </div>
-
-            <div className="bg-slate-950 p-1 rounded-lg border border-slate-800 flex gap-1">
-              <button
-                type="button"
-                onClick={() => setCurrency("USD")}
-                className={`px-3 py-1.5 sm:py-1 rounded text-xs font-semibold transition ${
-                  currency === "USD"
-                    ? "bg-emerald-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                USD ($)
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrency("PKR")}
-                className={`px-3 py-1.5 sm:py-1 rounded text-xs font-semibold transition ${
-                  currency === "PKR"
-                    ? "bg-emerald-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                PKR (Rs)
-              </button>
-            </div>
-
-            {/* Income Sources Dropdown */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center w-full gap-2 sm:gap-3">
-  <div className="relative w-full sm:w-auto">
-    <button
-      type="button"
-      onClick={() => setShowIncomeDropdown((s) => !s)}
-      className="px-3 py-2 sm:py-1 rounded text-xs font-semibold transition bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 w-full sm:w-auto text-center"
-    >
-      {incomeSource ? "Change Source" : "Link Income Source"}
-    </button>
-
-    {showIncomeDropdown && (
-      <div className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-80 bg-slate-950 border border-slate-800 rounded-lg shadow-2xl z-50 overflow-hidden max-w-full">
-        <div className="p-2 text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800 bg-slate-900/50">
-          Available Income Sources
-        </div>
-        <div className="max-h-60 overflow-y-auto">
-          {transactions.filter((t) => t.type === "income").length === 0 ? (
-            <div className="p-4 text-xs text-slate-500 italic">
-              No income sources found
-            </div>
-          ) : (
-            transactions
-              .filter((t) => t.type === "income")
-              .map((inc) => {
-                const spent = transactions
-                  .filter(
-                    (t) =>
-                      t.incomeSource?._id === inc._id ||
-                      t.incomeSource === inc._id
-                  )
-                  .reduce((acc, t) => acc + t.amount, 0);
-                const remaining = inc.amount - spent;
-
-                return (
-                  <button
-                    key={inc._id}
-                    type="button"
-                    onClick={() => {
-                      setIncomeSource(inc._id);
-                      setShowIncomeDropdown(false);
-                    }}
-                    className="w-full text-left p-3 hover:bg-slate-900 border-b border-slate-900 last:border-0 transition"
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm font-medium text-slate-200 truncate pr-2">
-                        {inc.title}
-                      </span>
-                      <span className="text-[10px] text-emerald-500 font-bold shrink-0">
-                        {currency === "PKR" ? "Rs " : "$"}
-                        {formatAmount(remaining)} left
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      Total: {currency === "PKR" ? "Rs " : "$"}
-                      {formatAmount(inc.amount)}
-                    </div>
-                  </button>
-                );
-              })
-          )}
-        </div>
-      </div>
-    )}
-  </div>
-
-  {/* Selected income badge */}
-  {incomeSource && (
-    <div className="px-3 py-1.5 rounded-lg sm:rounded-full text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-900 flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto shrink-0">
-      <span className="truncate max-w-[200px] sm:max-w-xs">
-        {transactions.find((t) => t._id === incomeSource)?.title || "Source"}
-      </span>
-      <button
-        type="button"
-        onClick={() => setIncomeSource("")}
-        className="hover:text-white p-1"
-      >
-        ✕
-      </button>
-    </div>
-  )}
-</div>
-          </div>
-        </div>
+        <Currency
+          loading={loading}
+          conversionRate={conversionRate}
+          currency={currency}
+          setCurrency={setCurrency}
+          incomeSource={incomeSource}
+          setIncomeSource={setIncomeSource}
+          showIncomeDropdown={showIncomeDropdown}
+          setShowIncomeDropdown={setShowIncomeDropdown}
+          transactions={transactions}
+          formatAmount={formatAmount}
+        />
 
         {/* Header and Period Filter */}
         <Analysis period={period} setPeriod={setPeriod} />
@@ -513,9 +403,6 @@ const Dashboard = () => {
           totalIncome={totalIncome}
           totalExpense={totalExpense}
           totalTax={totalTax}
-          totalDeducted={transactions
-            .filter((t) => t.type === "expense" && t.incomeSource)
-            .reduce((acc, t) => acc + Number(t.amount || 0), 0)}
           currency={currency}
           formatAmount={formatAmount}
         />
