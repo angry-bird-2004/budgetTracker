@@ -47,11 +47,11 @@ const Maincontent = ({
   const symbol = currency === "PKR" ? "Rs " : "$";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-full overflow-x-hidden">
       {/* Left Column: Forms (Transaction & Envelope Management) */}
-      <div className="space-y-6 lg:col-span-1">
+      <div className="space-y-6 lg:col-span-1 w-full min-w-0">
         {/* Transaction Form Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-semibold tracking-wide text-slate-200">
               {editingTxId ? "Edit Transaction" : "New Transaction"}
@@ -73,7 +73,7 @@ const Maincontent = ({
               <button
                 type="button"
                 onClick={() => setTxType("expense")}
-                className={`py-1.5 text-xs font-medium rounded transition ${
+                className={`py-2 sm:py-1.5 text-xs font-medium rounded transition ${
                   txType === "expense"
                     ? "bg-rose-600/20 text-rose-400 border border-rose-500/30"
                     : "text-slate-400 hover:text-white"
@@ -84,7 +84,7 @@ const Maincontent = ({
               <button
                 type="button"
                 onClick={() => setTxType("income")}
-                className={`py-1.5 text-xs font-medium rounded transition ${
+                className={`py-2 sm:py-1.5 text-xs font-medium rounded transition ${
                   txType === "income"
                     ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
                     : "text-slate-400 hover:text-white"
@@ -105,7 +105,7 @@ const Maincontent = ({
                 placeholder="e.g. Grocery, Salary"
                 value={txTitle}
                 onChange={(e) => setTxTitle(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
@@ -121,7 +121,7 @@ const Maincontent = ({
                 placeholder="0.00"
                 value={txAmount}
                 onChange={(e) => setTxAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
@@ -135,7 +135,7 @@ const Maincontent = ({
                   required
                   value={txEnvelope}
                   onChange={(e) => setTxEnvelope(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
                 >
                   <option value="">Select Envelope (Optional)</option>
                   {envelopes.map((env) => (
@@ -155,7 +155,7 @@ const Maincontent = ({
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
               >
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
@@ -174,7 +174,7 @@ const Maincontent = ({
                   required
                   value={incomeSource}
                   onChange={(e) => setIncomeSource(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
                 >
                   <option value="">Select Income Source (Optional)</option>
                   {transactions
@@ -211,7 +211,7 @@ const Maincontent = ({
                 placeholder="Reason or notes..."
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
@@ -224,7 +224,7 @@ const Maincontent = ({
                 type="date"
                 value={txDate}
                 onChange={(e) => setTxDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
@@ -246,7 +246,7 @@ const Maincontent = ({
                       placeholder="0%"
                       value={taxPercentage}
                       onChange={(e) => setTaxPercentage(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 sm:p-2 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                   <div>
@@ -259,7 +259,7 @@ const Maincontent = ({
                       placeholder="0.00"
                       value={taxAmount}
                       onChange={(e) => setTaxAmount(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 sm:p-2 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
@@ -271,7 +271,7 @@ const Maincontent = ({
                   <select
                     value={taxApplication}
                     onChange={(e) => setTaxApplication(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
                   >
                     <option value="exclusive">
                       Exclusive (Added to amount)
@@ -286,7 +286,7 @@ const Maincontent = ({
 
             <button
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-lg text-xs transition shadow-sm"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition shadow-sm"
             >
               {editingTxId ? "Update Transaction" : "Add Transaction"}
             </button>
@@ -294,7 +294,7 @@ const Maincontent = ({
         </div>
 
         {/* Envelope Manager Form */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
           <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4">
             {editingEnvId ? "Edit Envelope" : "Create Envelope"}
           </h2>
@@ -309,7 +309,7 @@ const Maincontent = ({
                 placeholder="e.g. Rent, Utilities"
                 value={envName}
                 onChange={(e) => setEnvName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
@@ -323,12 +323,12 @@ const Maincontent = ({
                 placeholder="0.00"
                 value={envAmount}
                 onChange={(e) => setEnvAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
               />
             </div>
             <button
               type="submit"
-              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium py-2.5 rounded-lg text-xs transition border border-slate-700"
+              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition border border-slate-700"
             >
               {editingEnvId ? "Update Envelope" : "Add Envelope"}
             </button>
@@ -337,9 +337,9 @@ const Maincontent = ({
       </div>
 
       {/* Right Column: Transaction List & Envelopes Overview */}
-      <div className="space-y-6 lg:col-span-2">
+      <div className="space-y-6 lg:col-span-2 w-full min-w-0">
         {/* Envelopes Summary Grid */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
           <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4">
             Budget Envelopes
           </h2>
@@ -350,29 +350,29 @@ const Maincontent = ({
               {envelopes.map((env) => (
                 <div
                   key={env._id}
-                  className="bg-slate-950 border border-slate-800/80 p-3 rounded-lg flex justify-between items-center"
+                  className="bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg flex justify-between items-center gap-2"
                 >
-                  <div>
-                    <p className="text-xs font-semibold text-slate-200">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">
                       {env.name}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] sm:text-xs text-slate-400 truncate">
                       Allocated: {symbol}
                       {formatAmount(env.allocatedAmount)}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-3 shrink-0">
                     <button
                       type="button"
                       onClick={() => handleUpdateEnvelope(env._id)}
-                      className="text-[11px] text-emerald-400 hover:underline"
+                      className="text-xs text-emerald-400 hover:underline px-1 py-0.5"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteEnvelope(env._id)}
-                      className="text-[11px] text-rose-400 hover:underline"
+                      className="text-xs text-rose-400 hover:underline px-1 py-0.5"
                     >
                       Delete
                     </button>
@@ -384,7 +384,7 @@ const Maincontent = ({
         </div>
 
         {/* Transactions History Feed */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
           <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4">
             Transaction History
           </h2>
@@ -400,18 +400,18 @@ const Maincontent = ({
                 return (
                   <div
                     key={tx._id}
-                    className="bg-slate-950 border border-slate-800/80 rounded-lg p-3.5 space-y-2"
+                    className="bg-slate-950 border border-slate-800/80 rounded-lg p-3 sm:p-4 space-y-3 w-full overflow-hidden"
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
                         <span
-                          className={`w-2 h-2 rounded-full ${tx.type === "income" ? "bg-emerald-500" : "bg-rose-500"}`}
+                          className={`w-2.5 h-2.5 rounded-full mt-1 sm:mt-0 shrink-0 ${tx.type === "income" ? "bg-emerald-500" : "bg-rose-500"}`}
                         />
-                        <div>
-                          <p className="text-xs font-semibold text-slate-200">
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">
                             {tx.title}
                           </p>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[10px] sm:text-xs text-slate-400 truncate">
                             {tx.date
                               ? new Date(tx.date).toLocaleDateString()
                               : "Recent"}{" "}
@@ -423,27 +423,27 @@ const Maincontent = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 pt-1 sm:pt-0 border-t border-slate-900 sm:border-0">
                         <span
-                          className={`text-xs font-bold ${tx.type === "income" ? "text-emerald-400" : "text-rose-400"}`}
+                          className={`text-xs sm:text-sm font-bold ${tx.type === "income" ? "text-emerald-400" : "text-rose-400"}`}
                         >
                           {tx.type === "income" ? "+" : "-"}
                           {symbol}
                           {formatAmount(tx.amount)}
                         </span>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <button
                             type="button"
                             onClick={() => handleStartEditTransaction(tx)}
-                            className="text-[11px] text-emerald-400 hover:underline"
+                            className="text-xs text-emerald-400 hover:underline py-1 px-1"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteTransaction(tx._id)}
-                            className="text-[11px] text-rose-400 hover:underline"
+                            className="text-xs text-rose-400 hover:underline py-1 px-1"
                           >
                             Delete
                           </button>
@@ -452,7 +452,7 @@ const Maincontent = ({
                             onClick={() =>
                               setExpandedTxId(isExpanded ? null : tx._id)
                             }
-                            className="text-[11px] text-slate-400 hover:text-white"
+                            className="text-xs text-slate-400 hover:text-white py-1 px-1"
                           >
                             {isExpanded ? "Less" : "Details"}
                           </button>
@@ -462,7 +462,7 @@ const Maincontent = ({
 
                     {/* Expanded Details View */}
                     {isExpanded && (
-                      <div className="pt-2 mt-2 border-t border-slate-800/80 text-[11px] text-slate-300 space-y-1">
+                      <div className="pt-3 mt-2 border-t border-slate-800/80 text-xs text-slate-300 space-y-1.5 overflow-x-auto">
                         {tx.purpose && (
                           <p>
                             <strong className="text-slate-400">Purpose:</strong>{" "}
@@ -507,7 +507,7 @@ const Maincontent = ({
                             {tx.updateLogs.map((log, idx) => (
                               <p
                                 key={idx}
-                                className="text-[10px] text-slate-400"
+                                className="text-[10px] sm:text-xs text-slate-400"
                               >
                                 • {new Date(log.timestamp).toLocaleString()}:{" "}
                                 {log.reason} (Before: {symbol}
