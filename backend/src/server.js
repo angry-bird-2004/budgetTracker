@@ -43,6 +43,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/envelopes', require('./routes/envelopeRoutes'));
+app.use('/api/income-envelopes', require('./routes/incomeEnvelopeRoutes')); // <--- Added Income Envelopes Route
 app.use('/api/transactions', require('./routes/transactionRoutes'));
 
 if (require.main === module) {
