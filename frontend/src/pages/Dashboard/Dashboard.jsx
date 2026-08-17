@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   fetchEnvelopes,
   addEnvelope,
@@ -56,6 +56,9 @@ const Dashboard = () => {
   // Dropdown visibility for income sources selector
   const [showIncomeDropdown, setShowIncomeDropdown] = useState(false);
 
+  // Ref to left column (forms) to scroll into view when editing
+  const leftColumnRef = useRef(null);
+
   const loadData = async () => {
     try {
       const envRes = await fetchEnvelopes();
@@ -105,6 +108,10 @@ const Dashboard = () => {
           ? envelopeToEdit.allocatedAmount * conversionRate
           : envelopeToEdit.allocatedAmount;
       setEnvAmount(displayedVal.toFixed(2));
+      // Scroll to left column form when editing envelope
+      setTimeout(() => {
+        leftColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
     }
   };
 
@@ -152,6 +159,11 @@ const Dashboard = () => {
         : tx.taxAmount || "";
     setTaxAmount(displayedTax ?? "");
     setTaxApplication(tx.taxApplication || "exclusive");
+
+    // Scroll to left column form so user can update immediately
+    setTimeout(() => {
+      leftColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
   };
 
   // Reset/Cancel transaction edit mode (Preserves incomeSource selection)
@@ -554,6 +566,7 @@ const Dashboard = () => {
           editingTxId={editingTxId}
           handleStartEditTransaction={handleStartEditTransaction}
           handleCancelEditTransaction={handleCancelEditTransaction}
+          leftColumnRef={leftColumnRef}
         />
       </div>
     </div>

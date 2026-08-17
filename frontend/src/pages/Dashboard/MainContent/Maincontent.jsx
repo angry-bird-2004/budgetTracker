@@ -42,6 +42,7 @@ const Maincontent = ({
   editingTxId,
   handleStartEditTransaction,
   handleCancelEditTransaction,
+  leftColumnRef,
 }) => {
   const [expandedTxId, setExpandedTxId] = useState(null);
   const symbol = currency === "PKR" ? "Rs " : "$";
@@ -49,7 +50,7 @@ const Maincontent = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-full overflow-x-hidden">
       {/* Left Column: Forms (Transaction & Envelope Management) */}
-      <div className="space-y-6 lg:col-span-1 w-full min-w-0">
+      <div ref={leftColumnRef} className="space-y-6 lg:col-span-1 w-full min-w-0">
         {/* Transaction Form Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full">
           <div className="flex justify-between items-center mb-4">
