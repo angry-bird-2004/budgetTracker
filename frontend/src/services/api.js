@@ -39,6 +39,12 @@ export const removeEnvelope = (id) => API.delete(`/envelopes/${id}`);
 export const postFill = (data) => API.post('/transactions/fill', data);
 export const updateEnvelope = (id, data) => API.put(`/envelopes/${id}`, data);
 
+// Income Envelope services
+export const fetchIncomeEnvelopes = () => API.get('/income-envelopes');
+export const addIncomeEnvelope = (data) => API.post('/income-envelopes', data);
+export const updateIncomeEnvelope = (id, data) => API.put(`/income-envelopes/${id}`, data);
+export const removeIncomeEnvelope = (id) => API.delete(`/income-envelopes/${id}`);
+
 export const updateTransaction = (id, data) => API.put(`/transactions/${id}`, data);
 
 export const fetchTransactions = (period) => API.get(`/transactions?period=${period}`);
