@@ -24,10 +24,10 @@ const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
   const [incomeEnvelopes, setIncomeEnvelopes] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [period, setPeriod] = useState("monthly");
+  const [period, setPeriod] = useState("all");
 
   // Currency State ('USD' or 'PKR')
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("PKR");
   const { conversionRate, loading } = useExchangeRate();
 
   // Helper utility to format and convert amounts anywhere in dashboard

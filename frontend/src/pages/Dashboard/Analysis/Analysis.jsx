@@ -1,6 +1,14 @@
 import React from "react";
 
 const Analysis = ({ period, setPeriod }) => {
+  const periods = [
+    { key: "all", label: "All Time" },
+    { key: "weekly", label: "Weekly" },
+    { key: "monthly", label: "Monthly" },
+    { key: "financial-year", label: "Financial Year (Jul-Jun)" },
+    { key: "yearly", label: "Yearly" },
+  ];
+
   return (
     <>
       <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900 p-6 rounded-xl border border-slate-800 gap-4">
@@ -10,14 +18,18 @@ const Analysis = ({ period, setPeriod }) => {
             Manage envelopes and view spending history across intervals.
           </p>
         </div>
-        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-          {["weekly", "monthly", "yearly"].map((p) => (
+        <div className="flex flex-wrap bg-slate-950 p-1 rounded-lg border border-slate-800 gap-1">
+          {periods.map(({ key, label }) => (
             <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-4 py-1.5 rounded-md text-sm capitalize font-medium transition ${period === p ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"}`}
+              key={key}
+              onClick={() => setPeriod(key)}
+              className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition ${
+                period === key
+                  ? "bg-indigo-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
             >
-              {p}
+              {label}
             </button>
           ))}
         </div>
