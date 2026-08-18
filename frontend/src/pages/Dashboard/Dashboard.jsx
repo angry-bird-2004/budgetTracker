@@ -516,6 +516,8 @@ const Dashboard = () => {
           totalTax={totalTax}
           currency={currency}
           formatAmount={formatAmount}
+          incomeEnvelopes={incomeEnvelopes}
+          transactions={transactions}
         />
 
         <Maincontent
