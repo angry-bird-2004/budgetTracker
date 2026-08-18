@@ -13,6 +13,7 @@ import {
   updateIncomeEnvelope,
   removeIncomeEnvelope,
 } from "../../services/api";
+import Navbar from "../../components/Navbar";
 import Currency from "./Currency/Currency";
 import Analysis from "./Analysis/Analysis";
 import Header from "./Header/Header";
@@ -494,6 +495,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-6 w-full max-w-full overflow-x-hidden">
       <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 w-full">
+        <Navbar/>
         <Currency
           loading={loading}
           conversionRate={conversionRate}
@@ -504,6 +506,7 @@ const Dashboard = () => {
           showIncomeDropdown={showIncomeDropdown}
           setShowIncomeDropdown={setShowIncomeDropdown}
           transactions={transactions}
+          envelopes={incomeEnvelopes}
           formatAmount={formatAmount}
         />
 
@@ -515,6 +518,8 @@ const Dashboard = () => {
           totalTax={totalTax}
           currency={currency}
           formatAmount={formatAmount}
+          incomeEnvelopes={incomeEnvelopes}
+          transactions={transactions}
         />
 
         <Maincontent
