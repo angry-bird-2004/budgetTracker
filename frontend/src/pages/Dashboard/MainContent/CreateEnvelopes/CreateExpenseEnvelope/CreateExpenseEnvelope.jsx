@@ -1,0 +1,62 @@
+import React from "react";
+
+const CreateExpenseEnvelope = ({
+  envelopeFormRef,
+  editingEnvId,
+  handleCreateEnvelope,
+  envName,
+  setEnvName,
+  envAmount,
+  setEnvAmount,
+  symbol,
+}) => {
+  return (
+    <>
+      <div
+        ref={envelopeFormRef}
+        className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full"
+      >
+        <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4 truncate">
+          {editingEnvId ? "Edit Expense Envelope" : "Create Expense Envelope"}
+        </h2>
+        <form onSubmit={handleCreateEnvelope} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
+              Envelope Name
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Rent, Groceries"
+              value={envName}
+              onChange={(e) => setEnvName(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
+              Allocated Amount ({symbol})
+            </label>
+            <input
+              type="number"
+              step="any"
+              required
+              placeholder="0.00"
+              value={envAmount}
+              onChange={(e) => setEnvAmount(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition border border-slate-700"
+          >
+            {editingEnvId ? "Update Expense Envelope" : "Add Expense Envelope"}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+};
+
+export default CreateExpenseEnvelope;
