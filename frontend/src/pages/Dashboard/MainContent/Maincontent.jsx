@@ -229,12 +229,28 @@ const Maincontent = ({
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500 truncate"
                 >
                   <option value="">Select Income Envelope Target</option>
-                  {incomeEnvelopes.map((inc) => (
-                    <option key={inc._id} value={inc._id}>
-                      {inc.name} ({symbol}
-                      {formatAmount(inc.allocatedAmount)})
-                    </option>
-                  ))}
+                  {incomeEnvelopes.map((inc) => {
+                    // Calculate spent amount for this specific income envelope
+                    const spentForThisEnv = transactions
+                      .filter(
+                        (t) =>
+                          t.type === "expense" &&
+                          (t.incomeSource?._id === inc._id ||
+                            t.incomeSource === inc._id),
+                      )
+                      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+                    // Calculate remaining amount
+                    const remainingForThisEnv =
+                      Number(inc.allocatedAmount || 0) - spentForThisEnv;
+
+                    return (
+                      <option key={inc._id} value={inc._id}>
+                        {inc.name} (Rem: {symbol}
+                        {formatAmount(remainingForThisEnv)})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             )}
@@ -267,12 +283,28 @@ const Maincontent = ({
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500 truncate"
                 >
                   <option value="">Select Income Envelope Source</option>
-                  {incomeEnvelopes.map((inc) => (
-                    <option key={inc._id} value={inc._id}>
-                      {inc.name} ({symbol}
-                      {formatAmount(inc.allocatedAmount)})
-                    </option>
-                  ))}
+                  {incomeEnvelopes.map((inc) => {
+                    // Calculate spent amount for this specific income envelope
+                    const spentForThisEnv = transactions
+                      .filter(
+                        (t) =>
+                          t.type === "expense" &&
+                          (t.incomeSource?._id === inc._id ||
+                            t.incomeSource === inc._id),
+                      )
+                      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+                    // Calculate remaining amount
+                    const remainingForThisEnv =
+                      Number(inc.allocatedAmount || 0) - spentForThisEnv;
+
+                    return (
+                      <option key={inc._id} value={inc._id}>
+                        {inc.name} (Rem: {symbol}
+                        {formatAmount(remainingForThisEnv)})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             )}
@@ -689,33 +721,45 @@ const Maincontent = ({
                           {symbol}
                           {formatAmount((env.allocatedAmount || 0) - consumed)}
                         </p>
-                        
 
                         <div className="pt-2 min-w-0">
-                          <p className="font-semibold text-slate-400 mb-2 truncate">Expenses in this envelope:</p>
+                          <p className="font-semibold text-slate-400 mb-2 truncate">
+                            Expenses in this envelope:
+                          </p>
                           {envelopeExpenses.length === 0 ? (
-                            <p className="text-xs text-slate-500">No expenses linked yet.</p>
+                            <p className="text-xs text-slate-500">
+                              No expenses linked yet.
+                            </p>
                           ) : (
                             <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                               {envelopeExpenses.map((t) => (
-                                <div key={t._id} className="flex justify-between items-center gap-2 min-w-0">
+                                <div
+                                  key={t._id}
+                                  className="flex justify-between items-center gap-2 min-w-0"
+                                >
                                   <div className="min-w-0 flex-1 pr-2">
-                                    <p className="text-xs font-medium text-slate-200 truncate">{t.title}</p>
-                                    <p className="text-[10px] text-slate-400">{t.date ? new Date(t.date).toLocaleDateString() : "-"}</p>
+                                    <p className="text-xs font-medium text-slate-200 truncate">
+                                      {t.title}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">
+                                      {t.date
+                                        ? new Date(t.date).toLocaleDateString()
+                                        : "-"}
+                                    </p>
                                   </div>
-                                  <div className="text-xs font-semibold text-rose-400 shrink-0">-{symbol}{formatAmount(t.amount)}</div>
+                                  <div className="text-xs font-semibold text-rose-400 shrink-0">
+                                    -{symbol}
+                                    {formatAmount(t.amount)}
+                                  </div>
                                 </div>
                               ))}
                             </div>
                           )}
                         </div>
-                        
-                        
                       </div>
                     )}
                   </div>
                 );
-              
               })}
             </div>
           )}
