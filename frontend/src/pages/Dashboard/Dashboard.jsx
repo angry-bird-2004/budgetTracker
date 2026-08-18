@@ -504,6 +504,7 @@ const Dashboard = () => {
           showIncomeDropdown={showIncomeDropdown}
           setShowIncomeDropdown={setShowIncomeDropdown}
           transactions={transactions}
+          envelopes={incomeEnvelopes}
           formatAmount={formatAmount}
         />
 
