@@ -111,6 +111,8 @@ const Maincontent = ({
     const source = list.find((env) => env._id === fromEnvId);
     if (!source) return;
 
+    let maxAmount = Number(source.allocatedAmount || 0);
+
     if (transferType === "expense") {
       const consumed = transactions
         .filter(
@@ -120,11 +122,11 @@ const Maincontent = ({
               t.envelopeId === source._id),
         )
         .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-      const remaining = (source.allocatedAmount || 0) - consumed;
-      setTransferAmount(remaining > 0 ? remaining.toString() : "0");
-    } else {
-      setTransferAmount((source.allocatedAmount || 0).toString());
+
+      maxAmount = Math.max(0, Number(source.allocatedAmount || 0) - consumed);
     }
+
+    setTransferAmount(maxAmount.toString());
   };
 
   return (

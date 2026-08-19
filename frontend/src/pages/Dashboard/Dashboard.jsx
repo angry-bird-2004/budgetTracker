@@ -446,14 +446,22 @@ const Dashboard = () => {
 
         if (existingTx && existingTx.type === "expense" && transactionData.type === "expense") {
           const linkedExpenseEnvelope = transactionData.envelopeId;
-          const currentEnvelopeSpent = getEnvelopeSpent(linkedExpenseEnvelope, transactions.filter((tx) => tx._id !== editingTxId));
+          const currentEnvelopeSpent = getEnvelopeSpent(
+            linkedExpenseEnvelope,
+            transactions.filter((tx) => tx._id !== editingTxId),
+          );
           const projectedEnvelopeSpend = currentEnvelopeSpent + finalAmount;
-          const selectedEnvelope = envelopes.find((env) => String(env._id) === String(linkedExpenseEnvelope));
-          if (selectedEnvelope && projectedEnvelopeSpend > Number(selectedEnvelope.allocatedAmount || 0)) {
+          const selectedEnvelope = envelopes.find(
+            (env) => String(env._id) === String(linkedExpenseEnvelope),
+          );
+
+          if (
+            selectedEnvelope &&
+            projectedEnvelopeSpend > Number(selectedEnvelope.allocatedAmount || 0)
+          ) {
             alert(
-              `This expense would exceed the selected envelope budget (${symbol}${formatAmount(Number(selectedEnvelope.allocatedAmount || 0))}).`,
+              `Warning: this update would exceed the selected envelope budget (${symbol}${formatAmount(Number(selectedEnvelope.allocatedAmount || 0))}), but it can still be saved.`,
             );
-            return;
           }
         }
 
@@ -521,9 +529,8 @@ const Dashboard = () => {
           const remaining = incomeAmount - spent;
           if (remaining < finalAmount) {
             alert(
-              "Selected income envelope does not have sufficient remaining funds to cover this expense.",
+              "Warning: this income envelope is short on remaining funds, but the expense can still be added.",
             );
-            return;
           }
         }
 
