@@ -23,12 +23,19 @@ const Transactions = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {envelopes.map((env) => {
-              const envelopeExpenses = transactions.filter(
-                (t) =>
-                  t.type === "expense" &&
-                  ((t.envelopeId && t.envelopeId._id === env._id) ||
-                    t.envelopeId === env._id),
-              );
+              // Robustly check multiple possible property references for expense envelopes
+              const envelopeExpenses = transactions.filter((t) => {
+                if (t.type !== "expense") return false;
+
+                const sourceRef = t.envelopeId || t.txExpenseEnvelope;
+                const sourceId =
+                  typeof sourceRef === "object" && sourceRef !== null
+                    ? sourceRef._id
+                    : sourceRef;
+
+                return String(sourceId) === String(env._id);
+              });
+
               const consumed = envelopeExpenses.reduce(
                 (acc, t) => acc + Number(t.amount || 0),
                 0,

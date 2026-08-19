@@ -2,8 +2,6 @@ import React, { useState } from "react";
 
 const Header = ({
   totalIncome,
-  totalExpense,
-  totalTax = 0,
   currency = "USD",
   formatAmount,
   incomeEnvelopes = [],

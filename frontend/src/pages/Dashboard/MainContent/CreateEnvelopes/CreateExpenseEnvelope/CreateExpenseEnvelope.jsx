@@ -16,9 +16,11 @@ const CreateExpenseEnvelope = ({
         ref={envelopeFormRef}
         className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full"
       >
-        <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4 truncate">
-          {editingEnvId ? "Edit Expense Envelope" : "Create Expense Envelope"}
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-sm font-semibold tracking-wide text-slate-200 truncate">
+            {editingEnvId ? "Edit Expense Envelope" : "Create Expense Envelope"}
+          </h2>
+        </div>
         <form onSubmit={handleCreateEnvelope} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1">
@@ -49,7 +51,7 @@ const CreateExpenseEnvelope = ({
           </div>
           <button
             type="submit"
-            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition border border-slate-700"
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition shadow-sm"
           >
             {editingEnvId ? "Update Expense Envelope" : "Add Expense Envelope"}
           </button>

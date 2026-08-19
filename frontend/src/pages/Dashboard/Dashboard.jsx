@@ -74,7 +74,7 @@ const Dashboard = () => {
   const envelopeFormRef = useRef(null);
   const incomeFormRef = useRef(null);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
       const envRes = await fetchEnvelopes();
       setEnvelopes(envRes.data);
@@ -91,10 +91,38 @@ const Dashboard = () => {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [period]);
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+
+    const fetchData = async () => {
+      try {
+        const envRes = await fetchEnvelopes();
+        if (!isMounted) return;
+        setEnvelopes(envRes.data);
+
+        try {
+          const incomeEnvRes = await fetchIncomeEnvelopes();
+          if (!isMounted) return;
+          setIncomeEnvelopes(incomeEnvRes.data);
+        } catch (e) {
+          console.warn("Income envelopes fetch skipped or endpoint not ready:", e);
+        }
+
+        const txRes = await fetchTransactions(period);
+        if (!isMounted) return;
+        setTransactions(txRes.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    void fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [period]);
 
   // Expense Envelope Handlers
@@ -331,7 +359,7 @@ const Dashboard = () => {
         }
       }
 
-      // 1. Build transactionData payload first so it's available everywhere
+      // 1. Build transactionData payload
       const transactionData = {
         title: txTitle,
         amount: finalAmount,

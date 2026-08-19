@@ -7,8 +7,8 @@ import TransferFund from "./TransferFund/TransferFund";
 import Transactions from "./ShowEnvelopes/Transactions/Transactions";
 import Incomes from "./ShowEnvelopes/Incomes/Incomes";
 import TransactionHistory from "./TransactionHIstory/TransactionHistory";
+
 const Maincontent = ({
-  handleUpdateTransaction,
   handleCreateEnvelope,
   envName,
   setEnvName,
@@ -25,7 +25,6 @@ const Maincontent = ({
   handleUpdateIncomeEnvelope,
   handleDeleteIncomeEnvelope,
   editingIncomeEnvId,
-  setEditingIncomeEnvId,
   incomeFormRef,
   // Transfer Feature Props
   handleTransferBetweenEnvelopes,
@@ -33,7 +32,6 @@ const Maincontent = ({
   handleDeleteEnvelope,
   handleUpdateEnvelope,
   editingEnvId,
-  setEditingEnvId,
   handleCreateTransaction,
   txTitle,
   setTxTitle,
@@ -127,7 +125,6 @@ const Maincontent = ({
       {/* Left Column: Forms (Transaction, Expense Envelope, Income Envelope) */}
       <div className="space-y-6 lg:col-span-1 w-full min-w-0">
         {/* Transaction Form Card */}
-
         <CreateTransaction
           transactionFormRef={transactionFormRef}
           editingTxId={editingTxId}
@@ -209,6 +206,7 @@ const Maincontent = ({
           handleMaxTransfer={handleMaxTransfer}
           executeTransfer={executeTransfer}
         />
+
         {/* Budget Envelopes Summary Grid */}
         <Transactions
           envelopes={envelopes}

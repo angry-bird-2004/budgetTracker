@@ -33,7 +33,9 @@ const TransactionHistory = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 min-w-0">
                     <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                       <span
-                        className={`w-2.5 h-2.5 rounded-full mt-1 sm:mt-0 shrink-0 ${tx.type === "income" ? "bg-emerald-500" : "bg-rose-500"}`}
+                        className={`w-2.5 h-2.5 rounded-full mt-1 sm:mt-0 shrink-0 ${
+                          tx.type === "income" ? "bg-emerald-500" : "bg-rose-500"
+                        }`}
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">
@@ -53,7 +55,11 @@ const TransactionHistory = ({
 
                     <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 pt-2 sm:pt-0 border-t border-slate-900 sm:border-0 shrink-0">
                       <span
-                        className={`text-xs sm:text-sm font-bold shrink-0 ${tx.type === "income" ? "text-emerald-400" : "text-rose-400"}`}
+                        className={`text-xs sm:text-sm font-bold shrink-0 ${
+                          tx.type === "income"
+                            ? "text-emerald-400"
+                            : "text-rose-400"
+                        }`}
                       >
                         {tx.type === "income" ? "+" : "-"}
                         {symbol}
@@ -87,6 +93,7 @@ const TransactionHistory = ({
                       </div>
                     </div>
                   </div>
+
                   {/* Expanded Details View */}
                   {isExpanded && (
                     <div className="pt-3 mt-2 border-t border-slate-800/80 text-xs text-slate-300 space-y-1.5 min-w-0 overflow-x-auto">
@@ -104,7 +111,7 @@ const TransactionHistory = ({
                             : "Linked"}
                         </p>
                       )}
-                      {tx.incomeSource && (
+                      {(tx.incomeSource || tx.txIncomeEnvelope) && (
                         <p className="truncate">
                           <strong className="text-slate-400">
                             {tx.type === "income"
@@ -112,22 +119,25 @@ const TransactionHistory = ({
                               : "Funded From:"}
                           </strong>{" "}
                           {(() => {
-                            // 1. If it's already an object, grab its name/title/label
+                            const sourceRef =
+                              tx.incomeSource || tx.txIncomeEnvelope;
+
+                            // 1. If it's already a populated object, extract its name
                             if (
-                              typeof tx.incomeSource === "object" &&
-                              tx.incomeSource !== null
+                              typeof sourceRef === "object" &&
+                              sourceRef !== null
                             ) {
                               return (
-                                tx.incomeSource.name ||
-                                tx.incomeSource.title ||
-                                tx.incomeSource.envelopeName ||
+                                sourceRef.name ||
+                                sourceRef.title ||
+                                sourceRef.envelopeName ||
                                 "Linked Income"
                               );
                             }
 
-                            // 2. If it's an ID string, search the incomeEnvelopes array safely
+                            // 2. Otherwise search inside incomeEnvelopes array by ID
                             const foundEnv = incomeEnvelopes?.find(
-                              (e) => String(e._id) === String(tx.incomeSource),
+                              (e) => String(e._id) === String(sourceRef)
                             );
 
                             return foundEnv ? foundEnv.name : "Linked Income";

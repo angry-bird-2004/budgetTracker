@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 
 const CreateTransaction = ({
   transactionFormRef,
@@ -147,17 +147,18 @@ const CreateTransaction = ({
               >
                 <option value="">Select Income Envelope Target</option>
                 {incomeEnvelopes.map((inc) => {
-                  // Calculate spent amount for this specific income envelope
                   const spentForThisEnv = transactions
-                    .filter(
-                      (t) =>
-                        t.type === "expense" &&
-                        (t.incomeSource?._id === inc._id ||
-                          t.incomeSource === inc._id),
-                    )
+                    .filter((t) => {
+                      if (t.type !== "expense") return false;
+                      const sourceRef = t.incomeSource || t.txIncomeEnvelope;
+                      const sourceId =
+                        typeof sourceRef === "object" && sourceRef !== null
+                          ? sourceRef._id
+                          : sourceRef;
+                      return String(sourceId) === String(inc._id);
+                    })
                     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-                  // Calculate remaining amount
                   const remainingForThisEnv =
                     Number(inc.allocatedAmount || 0) - spentForThisEnv;
 
@@ -201,17 +202,18 @@ const CreateTransaction = ({
               >
                 <option value="">Select Income Envelope Source</option>
                 {incomeEnvelopes.map((inc) => {
-                  // Calculate spent amount for this specific income envelope
                   const spentForThisEnv = transactions
-                    .filter(
-                      (t) =>
-                        t.type === "expense" &&
-                        (t.incomeSource?._id === inc._id ||
-                          t.incomeSource === inc._id),
-                    )
+                    .filter((t) => {
+                      if (t.type !== "expense") return false;
+                      const sourceRef = t.incomeSource || t.txIncomeEnvelope;
+                      const sourceId =
+                        typeof sourceRef === "object" && sourceRef !== null
+                          ? sourceRef._id
+                          : sourceRef;
+                      return String(sourceId) === String(inc._id);
+                    })
                     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-                  // Calculate remaining amount
                   const remainingForThisEnv =
                     Number(inc.allocatedAmount || 0) - spentForThisEnv;
 
@@ -250,6 +252,7 @@ const CreateTransaction = ({
               className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
             />
           </div>
+
           {txType === "expense" && (
             <div className="space-y-3 pt-2 border-t border-slate-800 min-w-0">
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
