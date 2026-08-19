@@ -1,9 +1,8 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Header = ({
   totalIncome,
-  totalExpense,
-  totalTax = 0,
   currency = "USD",
   formatAmount,
   incomeEnvelopes = [],
@@ -168,6 +167,38 @@ const Header = ({
               Pool minus envelope expenses
             </p>
           )}
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-sm transition duration-200 hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-950/10">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Insights</p>
+            <h3 className="text-sm font-semibold text-slate-100">Open the full analytics dashboard</h3>
+          </div>
+          <Link
+            to="/analytics"
+            className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500"
+          >
+            View detailed analytics
+          </Link>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400">Income</p>
+            <p className="mt-2 text-lg font-bold text-emerald-400">{symbol}{formatAmount(Math.max(displayIncome, totalIncome))}</p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400">Spent</p>
+            <p className="mt-2 text-lg font-bold text-rose-400">{symbol}{formatAmount(displayExpense)}</p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400">Net</p>
+            <p className={`mt-2 text-lg font-bold ${displaySavings >= 0 ? "text-indigo-400" : "text-rose-500"}`}>
+              {symbol}{formatAmount(displaySavings)}
+            </p>
+          </div>
         </div>
       </div>
     </div>
