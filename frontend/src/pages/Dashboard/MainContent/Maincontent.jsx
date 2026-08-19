@@ -59,6 +59,7 @@ const Maincontent = ({
   taxAmount,
   setTaxAmount,
   handleDeleteTransaction,
+  handleImportTransactions,
   currency,
   formatAmount,
   editingTxId,
@@ -66,6 +67,12 @@ const Maincontent = ({
   handleCancelEditTransaction,
   transactionFormRef,
   envelopeFormRef,
+  transactionSearch,
+  setTransactionSearch,
+  transactionTypeFilter,
+  setTransactionTypeFilter,
+  transactionSort,
+  setTransactionSort,
 }) => {
   const [expandedTxId, setExpandedTxId] = useState(null);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState(null);
@@ -203,6 +210,7 @@ const Maincontent = ({
           transferAmount={transferAmount}
           setTransferAmount={setTransferAmount}
           symbol={symbol}
+          formatAmount={formatAmount}
           handleMaxTransfer={handleMaxTransfer}
           executeTransfer={executeTransfer}
         />
@@ -234,6 +242,7 @@ const Maincontent = ({
         {/* Transactions History Feed */}
         <TransactionHistory
           transactions={transactions}
+          envelopes={envelopes}
           incomeEnvelopes={incomeEnvelopes}
           expandedTxId={expandedTxId}
           setExpandedTxId={setExpandedTxId}
@@ -241,6 +250,13 @@ const Maincontent = ({
           formatAmount={formatAmount}
           handleStartEditTransaction={handleStartEditTransaction}
           handleDeleteTransaction={handleDeleteTransaction}
+          handleImportTransactions={handleImportTransactions}
+          transactionSearch={transactionSearch}
+          setTransactionSearch={setTransactionSearch}
+          transactionTypeFilter={transactionTypeFilter}
+          setTransactionTypeFilter={setTransactionTypeFilter}
+          transactionSort={transactionSort}
+          setTransactionSort={setTransactionSort}
         />
       </div>
     </div>
