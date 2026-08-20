@@ -9,6 +9,7 @@ const Incomes = ({
   formatAmount,
   handleUpdateIncomeEnvelope,
   handleDeleteIncomeEnvelope,
+  isSubmitting,
 }) => {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
@@ -57,10 +58,10 @@ const Incomes = ({
             return (
               <div
                 key={inc._id}
-                onClick={() => setSelectedIncomeEnvId(isOpen ? null : inc._id)}
+                onClick={() => !isSubmitting && setSelectedIncomeEnvId(isOpen ? null : inc._id)}
                 className={`bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg cursor-pointer transition min-w-0 ${
                   isOpen ? "ring-1 ring-emerald-500" : ""
-                }`}
+                } ${isSubmitting ? "opacity-70 pointer-events-none" : ""}`}
               >
                 <div className="flex justify-between items-center gap-2">
                   <div className="min-w-0 flex-1">
@@ -75,21 +76,23 @@ const Incomes = ({
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
+                      disabled={isSubmitting}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleUpdateIncomeEnvelope(inc._id);
                       }}
-                      className="text-xs text-emerald-400 hover:underline px-1 py-0.5"
+                      className="text-xs text-emerald-400 hover:underline px-1 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
+                      disabled={isSubmitting}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteIncomeEnvelope(inc._id);
                       }}
-                      className="text-xs text-rose-400 hover:underline px-1 py-0.5"
+                      className="text-xs text-rose-400 hover:underline px-1 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
                     >
                       Delete
                     </button>

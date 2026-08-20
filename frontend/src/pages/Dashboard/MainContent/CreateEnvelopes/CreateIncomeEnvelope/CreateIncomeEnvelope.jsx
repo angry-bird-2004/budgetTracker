@@ -9,6 +9,7 @@ const CreateIncomeEnvelope = ({
   incomeEnvAmount,
   setIncomeEnvAmount,
   symbol,
+  isSubmitting,
 }) => {
   return (
     <>
@@ -53,11 +54,16 @@ const CreateIncomeEnvelope = ({
           </div>
           <button
             type="submit"
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition shadow-sm"
+            disabled={isSubmitting}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 disabled:cursor-not-allowed text-white font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all duration-200 active:scale-[0.99] shadow-sm disabled:shadow-none"
           >
-            {editingIncomeEnvId
-              ? "Update Income Envelope"
-              : "Add Income Envelope"}
+            {isSubmitting
+              ? editingIncomeEnvId
+                ? "Updating Income Envelope..."
+                : "Adding Income Envelope..."
+              : editingIncomeEnvId
+                ? "Update Income Envelope"
+                : "Add Income Envelope"}
           </button>
         </form>
       </div>

@@ -29,6 +29,8 @@ const Dashboard = () => {
   const [transactionSearch, setTransactionSearch] = useState("");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
   const [transactionSort, setTransactionSort] = useState("newest");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Currency State ('USD' or 'PKR')
   const [currency, setCurrency] = useState("PKR");
@@ -101,6 +103,8 @@ const Dashboard = () => {
   const incomeFormRef = useRef(null);
 
   const loadData = React.useCallback(async () => {
+    setIsLoadingData(true);
+
     try {
       const envRes = await fetchEnvelopes();
       setEnvelopes(envRes.data);
@@ -116,6 +120,8 @@ const Dashboard = () => {
       setTransactions(txRes.data);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingData(false);
     }
   }, [period]);
 
@@ -123,6 +129,8 @@ const Dashboard = () => {
     let isMounted = true;
 
     const fetchData = async () => {
+      setIsLoadingData(true);
+
       try {
         const envRes = await fetchEnvelopes();
         if (!isMounted) return;
@@ -141,6 +149,10 @@ const Dashboard = () => {
         setTransactions(txRes.data);
       } catch (err) {
         console.error(err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingData(false);
+        }
       }
     };
 
@@ -166,36 +178,42 @@ const Dashboard = () => {
   // Expense Envelope Handlers
   const handleCreateEnvelope = async (e) => {
     e.preventDefault();
-    if (!envName || !envAmount) return;
+    if (!envName || !envAmount || isSubmitting) return;
 
-    const baseAmountInput = toBaseAmount(envAmount, currency, conversionRate);
+    setIsSubmitting(true);
 
-    if (Number.isNaN(baseAmountInput) || baseAmountInput <= 0) {
-      alert("Please enter a valid positive envelope budget.");
-      return;
-    }
+    try {
+      const baseAmountInput = toBaseAmount(envAmount, currency, conversionRate);
 
-    if (editingEnvId) {
-      const currentSpent = getEnvelopeSpent(editingEnvId);
-      if (baseAmountInput < currentSpent) {
-        alert(
-          `Cannot lower this envelope below the current spent amount (${symbol}${formatAmount(currentSpent)}).`,
-        );
+      if (Number.isNaN(baseAmountInput) || baseAmountInput <= 0) {
+        alert("Please enter a valid positive envelope budget.");
         return;
       }
 
-      await updateEnvelope(editingEnvId, {
-        name: envName,
-        allocatedAmount: baseAmountInput,
-      });
-      setEditingEnvId(null);
-    } else {
-      await addEnvelope({ name: envName, allocatedAmount: baseAmountInput });
-    }
+      if (editingEnvId) {
+        const currentSpent = getEnvelopeSpent(editingEnvId);
+        if (baseAmountInput < currentSpent) {
+          alert(
+            `Cannot lower this envelope below the current spent amount (${symbol}${formatAmount(currentSpent)}).`,
+          );
+          return;
+        }
 
-    setEnvName("");
-    setEnvAmount("");
-    loadData();
+        await updateEnvelope(editingEnvId, {
+          name: envName,
+          allocatedAmount: baseAmountInput,
+        });
+        setEditingEnvId(null);
+      } else {
+        await addEnvelope({ name: envName, allocatedAmount: baseAmountInput });
+      }
+
+      setEnvName("");
+      setEnvAmount("");
+      loadData();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUpdateEnvelope = (id) => {
@@ -219,55 +237,68 @@ const Dashboard = () => {
   };
 
   const handleDeleteEnvelope = async (id) => {
-    await removeEnvelope(id);
-    if (editingEnvId === id) {
-      setEditingEnvId(null);
-      setEnvName("");
-      setEnvAmount("");
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      await removeEnvelope(id);
+      if (editingEnvId === id) {
+        setEditingEnvId(null);
+        setEnvName("");
+        setEnvAmount("");
+      }
+      loadData();
+    } finally {
+      setIsSubmitting(false);
     }
-    loadData();
   };
 
   // Income Envelope Handlers
   const handleCreateIncomeEnvelope = async (e) => {
     e.preventDefault();
-    if (!incomeEnvName || !incomeEnvAmount) return;
+    if (!incomeEnvName || !incomeEnvAmount || isSubmitting) return;
 
-    const baseAmountInput = toBaseAmount(
-      incomeEnvAmount,
-      currency,
-      conversionRate,
-    );
+    setIsSubmitting(true);
 
-    if (Number.isNaN(baseAmountInput) || baseAmountInput <= 0) {
-      alert("Please enter a valid positive income envelope amount.");
-      return;
-    }
+    try {
+      const baseAmountInput = toBaseAmount(
+        incomeEnvAmount,
+        currency,
+        conversionRate,
+      );
 
-    if (editingIncomeEnvId) {
-      const currentSpent = getIncomeSpent(editingIncomeEnvId);
-      if (baseAmountInput < currentSpent) {
-        alert(
-          `Cannot lower this income envelope below the current amount already spent (${symbol}${formatAmount(currentSpent)}).`,
-        );
+      if (Number.isNaN(baseAmountInput) || baseAmountInput <= 0) {
+        alert("Please enter a valid positive income envelope amount.");
         return;
       }
 
-      await updateIncomeEnvelope(editingIncomeEnvId, {
-        name: incomeEnvName,
-        allocatedAmount: baseAmountInput,
-      });
-      setEditingIncomeEnvId(null);
-    } else {
-      await addIncomeEnvelope({
-        name: incomeEnvName,
-        allocatedAmount: baseAmountInput,
-      });
-    }
+      if (editingIncomeEnvId) {
+        const currentSpent = getIncomeSpent(editingIncomeEnvId);
+        if (baseAmountInput < currentSpent) {
+          alert(
+            `Cannot lower this income envelope below the current amount already spent (${symbol}${formatAmount(currentSpent)}).`,
+          );
+          return;
+        }
 
-    setIncomeEnvName("");
-    setIncomeEnvAmount("");
-    loadData();
+        await updateIncomeEnvelope(editingIncomeEnvId, {
+          name: incomeEnvName,
+          allocatedAmount: baseAmountInput,
+        });
+        setEditingIncomeEnvId(null);
+      } else {
+        await addIncomeEnvelope({
+          name: incomeEnvName,
+          allocatedAmount: baseAmountInput,
+        });
+      }
+
+      setIncomeEnvName("");
+      setIncomeEnvAmount("");
+      loadData();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUpdateIncomeEnvelope = (id) => {
@@ -291,17 +322,28 @@ const Dashboard = () => {
   };
 
   const handleDeleteIncomeEnvelope = async (id) => {
-    await removeIncomeEnvelope(id);
-    if (editingIncomeEnvId === id) {
-      setEditingIncomeEnvId(null);
-      setIncomeEnvName("");
-      setIncomeEnvAmount("");
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      await removeIncomeEnvelope(id);
+      if (editingIncomeEnvId === id) {
+        setEditingIncomeEnvId(null);
+        setIncomeEnvName("");
+        setIncomeEnvAmount("");
+      }
+      loadData();
+    } finally {
+      setIsSubmitting(false);
     }
-    loadData();
   };
 
   // Transfer Between Envelopes Handler
   const handleTransferBetweenEnvelopes = async (type, fromId, toId, rawTransferAmount) => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+
     try {
       const baseTransferAmount = toBaseAmount(
         rawTransferAmount,
@@ -335,6 +377,8 @@ const Dashboard = () => {
     } catch (error) {
       console.error("Error transferring funds between envelopes:", error);
       alert("Failed to transfer funds.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -394,6 +438,10 @@ const Dashboard = () => {
 
   const handleCreateTransaction = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+
     try {
       let rawInputAmount = parseFloat(txAmount);
       let rawAmount = toBaseAmount(rawInputAmount, currency, conversionRate);
@@ -561,6 +609,8 @@ const Dashboard = () => {
         error.response?.data?.error ||
         error.message;
       alert("Failed to save transaction: " + errorMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -576,24 +626,31 @@ const Dashboard = () => {
   };
 
   const handleDeleteTransaction = async (id) => {
-    const targetTx = transactions.find((tx) => tx._id === id);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    if (targetTx?.type === "income" && targetTx.incomeSource) {
-      const incomeId = getLinkedId(targetTx.incomeSource);
-      const targetEnv = incomeEnvelopes.find((env) => String(env._id) === String(incomeId));
-      if (targetEnv) {
-        await updateIncomeEnvelope(incomeId, {
-          name: targetEnv.name,
-          allocatedAmount: Math.max(0, Number(targetEnv.allocatedAmount || 0) - Number(targetTx.amount || 0)),
-        });
+    try {
+      const targetTx = transactions.find((tx) => tx._id === id);
+
+      if (targetTx?.type === "income" && targetTx.incomeSource) {
+        const incomeId = getLinkedId(targetTx.incomeSource);
+        const targetEnv = incomeEnvelopes.find((env) => String(env._id) === String(incomeId));
+        if (targetEnv) {
+          await updateIncomeEnvelope(incomeId, {
+            name: targetEnv.name,
+            allocatedAmount: Math.max(0, Number(targetEnv.allocatedAmount || 0) - Number(targetTx.amount || 0)),
+          });
+        }
       }
-    }
 
-    await removeTransaction(id);
-    if (editingTxId === id) {
-      handleCancelEditTransaction();
+      await removeTransaction(id);
+      if (editingTxId === id) {
+        handleCancelEditTransaction();
+      }
+      loadData();
+    } finally {
+      setIsSubmitting(false);
     }
-    loadData();
   };
 
   const handleImportTransactions = async (rows = []) => {
@@ -638,8 +695,21 @@ const Dashboard = () => {
       return acc + taxVal;
     }, 0);
 
+  const isBusy = isSubmitting || isLoadingData;
+
   return (
     <div className="min-h-screen bg-slate-950/80 text-slate-100 p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:p-6 sm:pb-8 w-full max-w-full overflow-x-hidden">
+      {(isBusy || isLoadingData) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-6 py-5 shadow-[0_20px_60px_rgba(15,23,42,0.45)]">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-400" />
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-200">
+              {isLoadingData ? "Loading data" : "Processing"}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-8 w-full">
         <Navbar/>
         <Currency
@@ -734,6 +804,7 @@ const Dashboard = () => {
           setTransactionTypeFilter={setTransactionTypeFilter}
           transactionSort={transactionSort}
           setTransactionSort={setTransactionSort}
+          isSubmitting={isSubmitting}
         />
       </div>
     </div>

@@ -9,6 +9,7 @@ const Transactions = ({
   formatAmount,
   handleUpdateEnvelope,
   handleDeleteEnvelope,
+  isSubmitting,
 }) => {
   return (
     <>
@@ -45,10 +46,10 @@ const Transactions = ({
               return (
                 <div
                   key={env._id}
-                  onClick={() => setSelectedEnvelopeId(isOpen ? null : env._id)}
+                  onClick={() => !isSubmitting && setSelectedEnvelopeId(isOpen ? null : env._id)}
                   className={`bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg cursor-pointer transition min-w-0 ${
                     isOpen ? "ring-1 ring-emerald-500" : ""
-                  }`}
+                  } ${isSubmitting ? "opacity-70 pointer-events-none" : ""}`}
                 >
                   <div className="flex justify-between items-center gap-2">
                     <div className="min-w-0 flex-1">
@@ -63,21 +64,23 @@ const Transactions = ({
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
+                        disabled={isSubmitting}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleUpdateEnvelope(env._id);
                         }}
-                        className="text-xs text-emerald-400 hover:underline px-1 py-0.5"
+                        className="text-xs text-emerald-400 hover:underline px-1 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
+                        disabled={isSubmitting}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteEnvelope(env._id);
                         }}
-                        className="text-xs text-rose-400 hover:underline px-1 py-0.5"
+                        className="text-xs text-rose-400 hover:underline px-1 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
                       >
                         Delete
                       </button>

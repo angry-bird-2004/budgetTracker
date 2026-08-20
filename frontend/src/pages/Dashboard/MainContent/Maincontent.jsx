@@ -73,6 +73,7 @@ const Maincontent = ({
   setTransactionTypeFilter,
   transactionSort,
   setTransactionSort,
+  isSubmitting,
 }) => {
   const [expandedTxId, setExpandedTxId] = useState(null);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState(null);
@@ -168,6 +169,7 @@ const Maincontent = ({
           setTaxAmount={setTaxAmount}
           taxApplication={taxApplication}
           setTaxApplication={setTaxApplication}
+          isSubmitting={isSubmitting}
         />
 
         {/* Expense Envelope Manager Form */}
@@ -180,6 +182,7 @@ const Maincontent = ({
           envAmount={envAmount}
           setEnvAmount={setEnvAmount}
           symbol={symbol}
+          isSubmitting={isSubmitting}
         />
 
         {/* Income Envelope Manager Form */}
@@ -192,6 +195,7 @@ const Maincontent = ({
           incomeEnvAmount={incomeEnvAmount}
           setIncomeEnvAmount={setIncomeEnvAmount}
           symbol={symbol}
+          isSubmitting={isSubmitting}
         />
       </div>
 
@@ -215,6 +219,7 @@ const Maincontent = ({
           formatAmount={formatAmount}
           handleMaxTransfer={handleMaxTransfer}
           executeTransfer={executeTransfer}
+          isSubmitting={isSubmitting}
         />
 
         {/* Budget Envelopes Summary Grid */}
@@ -227,6 +232,7 @@ const Maincontent = ({
           formatAmount={formatAmount}
           handleUpdateEnvelope={handleUpdateEnvelope}
           handleDeleteEnvelope={handleDeleteEnvelope}
+          isSubmitting={isSubmitting}
         />
 
         {/* Income Envelopes Summary Grid */}
@@ -239,6 +245,7 @@ const Maincontent = ({
           formatAmount={formatAmount}
           handleUpdateIncomeEnvelope={handleUpdateIncomeEnvelope}
           handleDeleteIncomeEnvelope={handleDeleteIncomeEnvelope}
+          isSubmitting={isSubmitting}
         />
 
         {/* Transactions History Feed */}
@@ -253,6 +260,7 @@ const Maincontent = ({
           handleStartEditTransaction={handleStartEditTransaction}
           handleDeleteTransaction={handleDeleteTransaction}
           handleImportTransactions={handleImportTransactions}
+          isSubmitting={isSubmitting}
           transactionSearch={transactionSearch}
           setTransactionSearch={setTransactionSearch}
           transactionTypeFilter={transactionTypeFilter}
