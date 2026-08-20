@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 const Transactions = ({
   envelopes,
@@ -11,6 +11,21 @@ const Transactions = ({
   handleDeleteEnvelope,
   isSubmitting,
 }) => {
+  // Group transactions by envelope id to avoid repeated O(n*m) filters on render
+  const transactionsByEnvelope = useMemo(() => {
+    const map = Object.create(null);
+    if (!Array.isArray(transactions) || transactions.length === 0) return map;
+    for (const t of transactions) {
+      if (t.type !== 'expense') continue;
+      const sourceRef = t.envelopeId || t.txExpenseEnvelope;
+      const sourceId = typeof sourceRef === 'object' && sourceRef !== null ? sourceRef._id : sourceRef;
+      const key = String(sourceId || '');
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    }
+    return map;
+  }, [transactions]);
+
   return (
     <>
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
@@ -24,23 +39,9 @@ const Transactions = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {envelopes.map((env) => {
-              // Robustly check multiple possible property references for expense envelopes
-              const envelopeExpenses = transactions.filter((t) => {
-                if (t.type !== "expense") return false;
+              const envelopeExpenses = transactionsByEnvelope[String(env._id)] || [];
 
-                const sourceRef = t.envelopeId || t.txExpenseEnvelope;
-                const sourceId =
-                  typeof sourceRef === "object" && sourceRef !== null
-                    ? sourceRef._id
-                    : sourceRef;
-
-                return String(sourceId) === String(env._id);
-              });
-
-              const consumed = envelopeExpenses.reduce(
-                (acc, t) => acc + Number(t.amount || 0),
-                0,
-              );
+              const consumed = envelopeExpenses.reduce((acc, t) => acc + Number(t.amount || 0), 0);
               const isOpen = selectedEnvelopeId === env._id;
 
               return (
@@ -124,11 +125,9 @@ const Transactions = ({
                                   <p className="text-xs font-medium text-slate-200 truncate">
                                     {t.title}
                                   </p>
-                                  <p className="text-[10px] text-slate-400">
-                                    {t.date
-                                      ? new Date(t.date).toLocaleDateString()
-                                      : "-"}
-                                  </p>
+                                          <p className="text-[10px] text-slate-400">
+                                            {t.date ? new Date(t.date).toLocaleDateString() : "-"}
+                                          </p>
                                 </div>
                                 <div className="text-xs font-semibold text-rose-400 shrink-0">
                                   -{symbol}
@@ -151,4 +150,4 @@ const Transactions = ({
   );
 };
 
-export default Transactions;
+export default React.memo(Transactions);

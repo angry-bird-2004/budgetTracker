@@ -2,7 +2,7 @@ const Transaction = require("../models/Transaction");
 
 const getTransactions = async (req, res) => {
   try {
-    const { period, year, month } = req.query;
+    const { period, year, month, page = 1, limit = 50 } = req.query;
     let query = { userId: req.user._id };
     const now = new Date();
     const currentYear = year ? parseInt(year) : now.getFullYear();
@@ -18,65 +18,36 @@ const getTransactions = async (req, res) => {
       query.date = { $gte: startOfWeek, $lte: endOfWeek };
     } else if (period === "monthly") {
       const startOfMonth = new Date(currentYear, currentMonth, 1);
-      const endOfMonth = new Date(
-        currentYear,
-        currentMonth + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
+      const endOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
       query.date = { $gte: startOfMonth, $lte: endOfMonth };
-    } else if (period === "financial-year") {
-      const fiscalStartMonth = 6; // July
-      const fiscalStartYear =
-        currentMonth >= fiscalStartMonth ? currentYear : currentYear - 1;
-      const startOfFinancialYear = new Date(
-        fiscalStartYear,
-        fiscalStartMonth,
-        1,
-      );
-      const endOfFinancialYear = new Date(
-        fiscalStartYear + 1,
-        fiscalStartMonth,
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
-      query.date = { $gte: startOfFinancialYear, $lte: endOfFinancialYear };
     } else if (period === "yearly") {
       const startOfYear = new Date(currentYear, 0, 1);
       const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
       query.date = { $gte: startOfYear, $lte: endOfYear };
     }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 500);
-    const skip = (page - 1) * limit;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const total = await Transaction.countDocuments(query);
+    // PERFORMANCE FIX: Parallel Execution & Lean Queries
+    const [total, transactions] = await Promise.all([
+      Transaction.countDocuments(query),
+      Transaction.find(query)
+        .populate("envelopeId", "name")
+        .populate("incomeSource", "name allocatedAmount")
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean() 
+    ]);
+
     const pages = Math.ceil(total / limit) || 1;
 
-    const transactions = await Transaction.find(query)
-      .populate("envelopeId", "name")
-      .populate("incomeSource", "name allocatedAmount")
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    // Use lean() to return plain objects (better performance)
-    const leanTx = await Transaction.find(query)
-      .populate("envelopeId", "name")
-      .populate("incomeSource", "name allocatedAmount")
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    res.status(200).json({ transactions: leanTx, total, page, pages });
+    res.status(200).json({ 
+      transactions, 
+      total, 
+      page: parseInt(page), 
+      pages 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -85,17 +56,9 @@ const getTransactions = async (req, res) => {
 const createTransaction = async (req, res) => {
   try {
     const {
-      title,
-      amount,
-      type,
-      envelopeId,
-      paymentMethod,
-      purpose,
-      taxPercentage,
-      taxAmount,
-      taxApplication,
-      date,
-      incomeSource,
+      title, amount, type, envelopeId, paymentMethod,
+      purpose, taxPercentage, taxAmount, taxApplication,
+      date, incomeSource,
     } = req.body;
 
     const transaction = await Transaction.create({
@@ -113,10 +76,10 @@ const createTransaction = async (req, res) => {
       date: date || Date.now(),
     });
 
-    // Populate envelope data before sending response back
     const populatedTx = await Transaction.findById(transaction._id)
       .populate("envelopeId", "name")
-      .populate("incomeSource", "name allocatedAmount");
+      .populate("incomeSource", "name allocatedAmount")
+      .lean();
 
     res.status(201).json(populatedTx);
   } catch (error) {
@@ -126,52 +89,29 @@ const createTransaction = async (req, res) => {
 
 const updateTransaction = async (req, res) => {
   try {
-    const transaction = await Transaction.findOne({
-      _id: req.params.id,
-      userId: req.user._id,
+    const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!transaction) return res.status(404).json({ message: "Transaction not found" });
+
+    const fields = [
+      "title", "amount", "type", "date", "paymentMethod", 
+      "purpose", "taxPercentage", "taxAmount", "taxApplication"
+    ];
+    
+    fields.forEach(field => {
+      if (req.body[field] !== undefined) transaction[field] = req.body[field];
     });
-    if (!transaction)
-      return res.status(404).json({ message: "Transaction not found" });
 
-    transaction.title = req.body.title || transaction.title;
-    transaction.amount =
-      req.body.amount !== undefined ? req.body.amount : transaction.amount;
-    transaction.type = req.body.type || transaction.type;
-    transaction.envelopeId =
-      transaction.type === "expense"
-        ? req.body.envelopeId || transaction.envelopeId
-        : undefined;
-    transaction.incomeSource =
-      req.body.incomeSource !== undefined
-        ? req.body.incomeSource
-        : transaction.incomeSource;
-    transaction.date = req.body.date || transaction.date;
+    transaction.envelopeId = transaction.type === "expense" ? (req.body.envelopeId || transaction.envelopeId) : undefined;
+    transaction.incomeSource = req.body.incomeSource !== undefined ? req.body.incomeSource : transaction.incomeSource;
 
-    // New: allow updating payment method, purpose, and tax fields
-    transaction.paymentMethod =
-      req.body.paymentMethod || transaction.paymentMethod;
-    transaction.purpose = req.body.purpose || transaction.purpose;
-    transaction.taxPercentage =
-      req.body.taxPercentage !== undefined
-        ? req.body.taxPercentage
-        : transaction.taxPercentage;
-    transaction.taxAmount =
-      req.body.taxAmount !== undefined
-        ? req.body.taxAmount
-        : transaction.taxAmount;
-    transaction.taxApplication =
-      req.body.taxApplication || transaction.taxApplication;
-
-    // Push multiple logs cleanly into the array
-    if (req.body.updateLogs) {
-      transaction.updateLogs = req.body.updateLogs;
-    }
+    if (req.body.updateLogs) transaction.updateLogs = req.body.updateLogs;
 
     await transaction.save();
 
     const updated = await Transaction.findById(transaction._id)
       .populate("envelopeId", "name")
-      .populate("incomeSource", "name allocatedAmount");
+      .populate("incomeSource", "name allocatedAmount")
+      .lean();
     res.status(200).json(updated);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -180,21 +120,12 @@ const updateTransaction = async (req, res) => {
 
 const deleteTransaction = async (req, res) => {
   try {
-    const transaction = await Transaction.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user._id,
-    });
-    if (!transaction)
-      return res.status(404).json({ message: "Transaction not found" });
+    const transaction = await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    if (!transaction) return res.status(404).json({ message: "Transaction not found" });
     res.status(200).json({ message: "Transaction deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-module.exports = {
-  getTransactions,
-  createTransaction,
-  updateTransaction,
-  deleteTransaction,
-};
+module.exports = { getTransactions, createTransaction, updateTransaction, deleteTransaction };

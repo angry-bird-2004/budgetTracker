@@ -1,11 +1,27 @@
 const Envelope = require('../models/Envelope');
+const Transaction = require('../models/Transaction');
+const mongoose = require('mongoose');
 
 const getEnvelopes = async (req, res) => {
   try {
-    const envelopes = await Envelope.find({ userId: req.user._id })
-      .select('name allocatedAmount currentBalance isSystem')
-      .lean();
-    res.status(200).json(envelopes);
+    // Aggregation to calculate total consumed per envelope
+    const stats = await Transaction.aggregate([
+      { $match: { userId: req.user._id, type: 'expense' } },
+      { $group: { _id: "$envelopeId", consumed: { $sum: "$amount" } } }
+    ]);
+
+    const envelopes = await Envelope.find({ userId: req.user._id }).lean();
+
+    const result = envelopes.map(env => {
+      const stat = stats.find(s => String(s._id) === String(env._id));
+      return {
+        ...env,
+        consumed: stat ? stat.consumed : 0,
+        currentBalance: env.allocatedAmount - (stat ? stat.consumed : 0)
+      };
+    });
+
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -23,14 +39,13 @@ const createEnvelope = async (req, res) => {
 
 const updateEnvelope = async (req, res) => {
   try {
-    const envelope = await Envelope.findOne({ _id: req.params.id, userId: req.user._id });
+    const envelope = await Envelope.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { $set: req.body },
+      { new: true }
+    ).lean();
     if (!envelope) return res.status(404).json({ message: 'Envelope not found' });
-    
-    envelope.name = req.body.name || envelope.name;
-    envelope.allocatedAmount = req.body.allocatedAmount !== undefined ? req.body.allocatedAmount : envelope.allocatedAmount;
-    
-    const updated = await envelope.save();
-    res.status(200).json(updated);
+    res.status(200).json(envelope);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

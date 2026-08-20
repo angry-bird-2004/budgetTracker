@@ -4,8 +4,17 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const compression = require('compression');
 const helmet = require('helmet');
+const Sentry = require('@sentry/node');
 
 dotenv.config();
+
+// Initialize Sentry if configured
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE) || 0.05,
+  });
+}
 
 if (process.env.MONGO_URI) {
   connectDB();
@@ -15,6 +24,7 @@ if (process.env.MONGO_URI) {
 
 const app = express();
 app.use(express.json());
+if (process.env.SENTRY_DSN) app.use(Sentry.Handlers.requestHandler());
 app.use(helmet());
 app.use(compression());
 
@@ -49,6 +59,18 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/envelopes', require('./routes/envelopeRoutes'));
 app.use('/api/income-envelopes', require('./routes/incomeEnvelopeRoutes')); // <--- Added Income Envelopes Route
 app.use('/api/transactions', require('./routes/transactionRoutes'));
+
+// Sentry error handler should be after all routes
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+  // Optional: expose a minimal JSON error response including the Sentry event id
+  app.use((err, req, res, next) => {
+    // eslint-disable-next-line no-console
+    console.error(err);
+    const sentryId = res.sentry || null;
+    res.status(500).json({ message: err.message || 'Internal Server Error', sentryId });
+  });
+}
 
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
