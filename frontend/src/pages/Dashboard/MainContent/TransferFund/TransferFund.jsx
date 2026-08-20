@@ -17,6 +17,7 @@ const TransferFund = ({
   formatAmount,
   handleMaxTransfer,
   executeTransfer,
+  isSubmitting,
 }) => {
   const sourceList = transferType === "expense" ? envelopes : incomeEnvelopes;
   const availableSource = sourceList.find((env) => env._id === fromEnvId);
@@ -167,9 +168,10 @@ const TransferFund = ({
 
               <button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-lg text-xs transition-all duration-200 shadow-[0_6px_18px_rgba(16,185,129,0.22)] hover:shadow-[0_10px_22px_rgba(16,185,129,0.24)]"
+                disabled={isSubmitting}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg text-xs transition-all duration-200 active:scale-[0.99] shadow-[0_6px_18px_rgba(16,185,129,0.22)] hover:shadow-[0_10px_22px_rgba(16,185,129,0.24)]"
               >
-                Confirm Transfer
+                {isSubmitting ? "Processing Transfer..." : "Confirm Transfer"}
               </button>
             </form>
           </div>

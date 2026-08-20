@@ -11,6 +11,7 @@ const TransactionHistory = ({
   handleStartEditTransaction,
   handleDeleteTransaction,
   handleImportTransactions,
+  isSubmitting,
   transactionSearch,
   setTransactionSearch,
   transactionTypeFilter,
@@ -212,8 +213,9 @@ const TransactionHistory = ({
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
               >
                 Import CSV
               </button>
@@ -226,8 +228,9 @@ const TransactionHistory = ({
               />
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={exportTransactionsCSV}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
               >
                 Export CSV
               </button>
@@ -325,15 +328,17 @@ const TransactionHistory = ({
                       <div className="flex items-center gap-1 sm:gap-2">
                         <button
                           type="button"
+                          disabled={isSubmitting}
                           onClick={() => handleStartEditTransaction(tx)}
-                          className="text-[11px] text-emerald-400 hover:text-emerald-300 hover:underline py-1 px-1 rounded transition"
+                          className="text-[11px] text-emerald-400 hover:text-emerald-300 hover:underline py-1 px-1 rounded transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
+                          disabled={isSubmitting}
                           onClick={() => handleDeleteTransaction(tx._id)}
-                          className="text-[11px] text-rose-400 hover:text-rose-300 hover:underline py-1 px-1 rounded transition"
+                          className="text-[11px] text-rose-400 hover:text-rose-300 hover:underline py-1 px-1 rounded transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Delete
                         </button>

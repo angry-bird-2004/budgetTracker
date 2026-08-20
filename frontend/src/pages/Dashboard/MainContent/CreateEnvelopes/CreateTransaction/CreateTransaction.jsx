@@ -34,6 +34,7 @@ const CreateTransaction = ({
   setTaxAmount,
   taxApplication,
   setTaxApplication,
+  isSubmitting,
 }) => {
   return (
     <>
@@ -308,9 +309,16 @@ const CreateTransaction = ({
 
           <button
             type="submit"
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition shadow-sm"
+            disabled={isSubmitting}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 disabled:cursor-not-allowed text-white font-medium py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all duration-200 active:scale-[0.99] shadow-sm disabled:shadow-none"
           >
-            {editingTxId ? "Update Transaction" : "Add Transaction"}
+            {isSubmitting
+              ? editingTxId
+                ? "Updating Transaction..."
+                : "Adding Transaction..."
+              : editingTxId
+                ? "Update Transaction"
+                : "Add Transaction"}
           </button>
         </form>
       </div>
