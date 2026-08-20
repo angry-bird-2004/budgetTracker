@@ -24,4 +24,7 @@ const incomeEnvelopeSchema = new mongoose.Schema(
   }
 );
 
+// Index common lookup fields
+incomeEnvelopeSchema.index({ userId: 1, name: 1 });
+
 module.exports = mongoose.model('IncomeEnvelope', incomeEnvelopeSchema);

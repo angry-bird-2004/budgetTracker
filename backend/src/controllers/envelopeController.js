@@ -2,7 +2,9 @@ const Envelope = require('../models/Envelope');
 
 const getEnvelopes = async (req, res) => {
   try {
-    const envelopes = await Envelope.find({ userId: req.user._id });
+    const envelopes = await Envelope.find({ userId: req.user._id })
+      .select('name allocatedAmount currentBalance isSystem')
+      .lean();
     res.status(200).json(envelopes);
   } catch (error) {
     res.status(500).json({ message: error.message });
