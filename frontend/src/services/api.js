@@ -21,7 +21,7 @@ API.interceptors.request.use((config) => {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
-  } catch (error) {
+  } catch {
     localStorage.removeItem('userInfo');
   }
 

@@ -26,6 +26,9 @@ const Dashboard = () => {
   const [incomeEnvelopes, setIncomeEnvelopes] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [period, setPeriod] = useState("all");
+  const [transactionSearch, setTransactionSearch] = useState("");
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
+  const [transactionSort, setTransactionSort] = useState("newest");
 
   // Currency State ('USD' or 'PKR')
   const [currency, setCurrency] = useState("PKR");
@@ -40,6 +43,27 @@ const Dashboard = () => {
       maximumFractionDigits: 2,
     });
   };
+
+  const getLinkedId = (value) =>
+    typeof value === "object" && value !== null ? value._id : value;
+
+  const getEnvelopeSpent = (envId, list = transactions) =>
+    list
+      .filter((tx) => {
+        if (tx.type !== "expense") return false;
+        const linkedId = getLinkedId(tx.envelopeId);
+        return String(linkedId) === String(envId);
+      })
+      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+
+  const getIncomeSpent = (incomeId, list = transactions) =>
+    list
+      .filter((tx) => {
+        if (tx.type !== "expense") return false;
+        const linkedId = getLinkedId(tx.incomeSource);
+        return String(linkedId) === String(incomeId);
+      })
+      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
   // Form states for Expense Envelopes
   const [envName, setEnvName] = useState("");
@@ -69,13 +93,14 @@ const Dashboard = () => {
   const [editingTxId, setEditingTxId] = useState(null);
   // Dropdown visibility for income sources selector
   const [showIncomeDropdown, setShowIncomeDropdown] = useState(false);
+  const symbol = currency === "PKR" ? "Rs " : "$";
 
   // Refs to specific forms so we can scroll to the appropriate form
   const transactionFormRef = useRef(null);
   const envelopeFormRef = useRef(null);
   const incomeFormRef = useRef(null);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
       const envRes = await fetchEnvelopes();
       setEnvelopes(envRes.data);
@@ -92,11 +117,51 @@ const Dashboard = () => {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [period]);
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+
+    const fetchData = async () => {
+      try {
+        const envRes = await fetchEnvelopes();
+        if (!isMounted) return;
+        setEnvelopes(envRes.data);
+
+        try {
+          const incomeEnvRes = await fetchIncomeEnvelopes();
+          if (!isMounted) return;
+          setIncomeEnvelopes(incomeEnvRes.data);
+        } catch (e) {
+          console.warn("Income envelopes fetch skipped or endpoint not ready:", e);
+        }
+
+        const txRes = await fetchTransactions(period);
+        if (!isMounted) return;
+        setTransactions(txRes.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    void fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [period]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "budgetTrackerAnalyticsData",
+      JSON.stringify({
+        transactions,
+        incomeEnvelopes,
+        currency,
+        conversionRate,
+      }),
+    );
+  }, [transactions, incomeEnvelopes, currency, conversionRate]);
 
   // Expense Envelope Handlers
   const handleCreateEnvelope = async (e) => {
@@ -105,7 +170,20 @@ const Dashboard = () => {
 
     const baseAmountInput = toBaseAmount(envAmount, currency, conversionRate);
 
+    if (Number.isNaN(baseAmountInput) || baseAmountInput <= 0) {
+      alert("Please enter a valid positive envelope budget.");
+      return;
+    }
+
     if (editingEnvId) {
+      const currentSpent = getEnvelopeSpent(editingEnvId);
+      if (baseAmountInput < currentSpent) {
+        alert(
+          `Cannot lower this envelope below the current spent amount (${symbol}${formatAmount(currentSpent)}).`,
+        );
+        return;
+      }
+
       await updateEnvelope(editingEnvId, {
         name: envName,
         allocatedAmount: baseAmountInput,
@@ -161,7 +239,20 @@ const Dashboard = () => {
       conversionRate,
     );
 
+    if (Number.isNaN(baseAmountInput) || baseAmountInput <= 0) {
+      alert("Please enter a valid positive income envelope amount.");
+      return;
+    }
+
     if (editingIncomeEnvId) {
+      const currentSpent = getIncomeSpent(editingIncomeEnvId);
+      if (baseAmountInput < currentSpent) {
+        alert(
+          `Cannot lower this income envelope below the current amount already spent (${symbol}${formatAmount(currentSpent)}).`,
+        );
+        return;
+      }
+
       await updateIncomeEnvelope(editingIncomeEnvId, {
         name: incomeEnvName,
         allocatedAmount: baseAmountInput,
@@ -332,7 +423,7 @@ const Dashboard = () => {
         }
       }
 
-      // 1. Build transactionData payload first so it's available everywhere
+      // 1. Build transactionData payload
       const transactionData = {
         title: txTitle,
         amount: finalAmount,
@@ -353,7 +444,28 @@ const Dashboard = () => {
       // 2. Handle Edit & Income Envelope Adjustments
       if (editingTxId) {
         const existingTx = transactions.find((tx) => tx._id === editingTxId);
-        
+
+        if (existingTx && existingTx.type === "expense" && transactionData.type === "expense") {
+          const linkedExpenseEnvelope = transactionData.envelopeId;
+          const currentEnvelopeSpent = getEnvelopeSpent(
+            linkedExpenseEnvelope,
+            transactions.filter((tx) => tx._id !== editingTxId),
+          );
+          const projectedEnvelopeSpend = currentEnvelopeSpent + finalAmount;
+          const selectedEnvelope = envelopes.find(
+            (env) => String(env._id) === String(linkedExpenseEnvelope),
+          );
+
+          if (
+            selectedEnvelope &&
+            projectedEnvelopeSpend > Number(selectedEnvelope.allocatedAmount || 0)
+          ) {
+            alert(
+              `Warning: this update would exceed the selected envelope budget (${symbol}${formatAmount(Number(selectedEnvelope.allocatedAmount || 0))}), but it can still be saved.`,
+            );
+          }
+        }
+
         if (existingTx && existingTx.type === "income") {
           const oldIncomeId = existingTx.incomeSource?._id || existingTx.incomeSource;
           const newIncomeId = transactionData.incomeSource;
@@ -418,9 +530,8 @@ const Dashboard = () => {
           const remaining = incomeAmount - spent;
           if (remaining < finalAmount) {
             alert(
-              "Selected income envelope does not have sufficient remaining funds to cover this expense.",
+              "Warning: this income envelope is short on remaining funds, but the expense can still be added.",
             );
-            return;
           }
         }
 
@@ -465,11 +576,45 @@ const Dashboard = () => {
   };
 
   const handleDeleteTransaction = async (id) => {
+    const targetTx = transactions.find((tx) => tx._id === id);
+
+    if (targetTx?.type === "income" && targetTx.incomeSource) {
+      const incomeId = getLinkedId(targetTx.incomeSource);
+      const targetEnv = incomeEnvelopes.find((env) => String(env._id) === String(incomeId));
+      if (targetEnv) {
+        await updateIncomeEnvelope(incomeId, {
+          name: targetEnv.name,
+          allocatedAmount: Math.max(0, Number(targetEnv.allocatedAmount || 0) - Number(targetTx.amount || 0)),
+        });
+      }
+    }
+
     await removeTransaction(id);
     if (editingTxId === id) {
       handleCancelEditTransaction();
     }
     loadData();
+  };
+
+  const handleImportTransactions = async (rows = []) => {
+    if (!rows.length) return;
+
+    let importedCount = 0;
+    for (const row of rows) {
+      try {
+        await addTransaction(row);
+        importedCount += 1;
+      } catch (error) {
+        console.error("Failed to import row:", row, error);
+      }
+    }
+
+    if (importedCount > 0) {
+      await loadData();
+      alert(`${importedCount} transaction(s) imported successfully.`);
+    } else {
+      alert("No valid transactions were imported. Please check the CSV format.");
+    }
   };
 
   // Calculations
@@ -494,8 +639,8 @@ const Dashboard = () => {
     }, 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-6 w-full max-w-full overflow-x-hidden">
-      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 w-full">
+    <div className="min-h-screen bg-slate-950/80 text-slate-100 p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:p-6 sm:pb-8 w-full max-w-full overflow-x-hidden">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-8 w-full">
         <Navbar/>
         <Currency
           loading={loading}
@@ -574,6 +719,7 @@ const Dashboard = () => {
           taxApplication={taxApplication}
           setTaxApplication={setTaxApplication}
           handleDeleteTransaction={handleDeleteTransaction}
+          handleImportTransactions={handleImportTransactions}
           currency={currency}
           conversionRate={conversionRate}
           formatAmount={formatAmount}
@@ -582,6 +728,12 @@ const Dashboard = () => {
           handleCancelEditTransaction={handleCancelEditTransaction}
           transactionFormRef={transactionFormRef}
           envelopeFormRef={envelopeFormRef}
+          transactionSearch={transactionSearch}
+          setTransactionSearch={setTransactionSearch}
+          transactionTypeFilter={transactionTypeFilter}
+          setTransactionTypeFilter={setTransactionTypeFilter}
+          transactionSort={transactionSort}
+          setTransactionSort={setTransactionSort}
         />
       </div>
     </div>

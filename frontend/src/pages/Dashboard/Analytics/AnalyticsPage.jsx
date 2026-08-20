@@ -37,7 +37,11 @@ const AnalyticsPage = () => {
 
   const formatAmount = (value) => {
     const num = Number(value) || 0;
+<<<<<<< HEAD
     const converted = currency === "PKR" ? num : num / conversionRate;
+=======
+    const converted = currency === "PKR" ? num * conversionRate : num;
+>>>>>>> 5d2ef6757f65fe6929e4b4e3650b3affcee68c3f
     return converted.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
