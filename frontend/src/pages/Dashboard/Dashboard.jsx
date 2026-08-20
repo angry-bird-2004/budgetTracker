@@ -15,10 +15,10 @@ import {
 } from "../../services/api";
 import Navbar from "../../components/Navbar";
 import Header from "./Header/Header";
-import { Suspense, lazy } from 'react';
-const Analysis = lazy(() => import('./Analysis/Analysis'));
-const Maincontent = lazy(() => import('./MainContent/Maincontent'));
-const Currency = lazy(() => import('./Currency/Currency'));
+import { Suspense, lazy } from "react";
+const Analysis = lazy(() => import("./Analysis/Analysis"));
+const Maincontent = lazy(() => import("./MainContent/Maincontent"));
+const Currency = lazy(() => import("./Currency/Currency"));
 import { useExchangeRate } from "../../Hooks/useExchangeRate";
 import { toBaseAmount, fromBaseAmount } from "../../utils/amounts";
 
@@ -35,13 +35,15 @@ const Dashboard = () => {
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
   const [transactionSort, setTransactionSort] = useState("newest");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Currency State ('USD' or 'PKR')
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [envelopesLoading, setEnvelopesLoading] = useState(false);
+  const [incomeEnvelopesLoading, setIncomeEnvelopesLoading] = useState(false);
+
   const [currency, setCurrency] = useState("PKR");
   const { conversionRate, loading } = useExchangeRate();
 
-  // Helper utility to format and convert amounts anywhere in dashboard
   const formatAmount = (val) => {
     const num = Number(val) || 0;
     const converted = currency === "PKR" ? num : num / conversionRate;
@@ -72,37 +74,31 @@ const Dashboard = () => {
       })
       .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
-  // Form states for Expense Envelopes
   const [envName, setEnvName] = useState("");
   const [envAmount, setEnvAmount] = useState("");
   const [editingEnvId, setEditingEnvId] = useState(null);
 
-  // Form states for Income Envelopes
   const [incomeEnvName, setIncomeEnvName] = useState("");
   const [incomeEnvAmount, setIncomeEnvAmount] = useState("");
   const [editingIncomeEnvId, setEditingIncomeEnvId] = useState(null);
 
-  // Form states for Transactions
   const [txTitle, setTxTitle] = useState("");
   const [txAmount, setTxAmount] = useState("");
   const [txType, setTxType] = useState("expense");
   const [txEnvelope, setTxEnvelope] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [incomeSource, setIncomeSource] = useState("");
-  const [txIncomeEnvelope, setTxIncomeEnvelope] = useState(""); // Dedicated state for Income Transactions
+  const [txIncomeEnvelope, setTxIncomeEnvelope] = useState("");
   const [purpose, setPurpose] = useState("");
   const [txDate, setTxDate] = useState("");
   const [taxPercentage, setTaxPercentage] = useState("");
   const [taxAmount, setTaxAmount] = useState("");
   const [taxApplication, setTaxApplication] = useState("exclusive");
 
-  // State for tracking transaction being edited
   const [editingTxId, setEditingTxId] = useState(null);
-  // Dropdown visibility for income sources selector
   const [showIncomeDropdown, setShowIncomeDropdown] = useState(false);
   const symbol = currency === "PKR" ? "Rs " : "$";
 
-  // Refs to specific forms so we can scroll to the appropriate form
   const transactionFormRef = useRef(null);
   const envelopeFormRef = useRef(null);
   const incomeFormRef = useRef(null);
@@ -110,7 +106,7 @@ const Dashboard = () => {
 
   const loadTransactions = React.useCallback(
     async (page = 1, append = false) => {
-      setIsLoadingData(true);
+      setTransactionsLoading(true);
       try {
         const txRes = await fetchTransactions(period, page, txLimit);
         const { transactions: txs, total, pages } = txRes.data;
@@ -118,19 +114,23 @@ const Dashboard = () => {
         setTxPages(pages);
         setTxTotal(total);
         if (append)
-          setTransactions((prev) => [...(prev || []), ...(Array.isArray(txs) ? txs : [])]);
+          setTransactions((prev) => [
+            ...(prev || []),
+            ...(Array.isArray(txs) ? txs : []),
+          ]);
         else setTransactions(Array.isArray(txs) ? txs : []);
       } catch (err) {
         console.error(err);
       } finally {
-        setIsLoadingData(false);
+        setTransactionsLoading(false);
       }
     },
     [period, txLimit],
   );
 
   const loadData = React.useCallback(async () => {
-    setIsLoadingData(true);
+    setEnvelopesLoading(true);
+    setIncomeEnvelopesLoading(true);
     try {
       const envRes = await fetchEnvelopes();
       setEnvelopes(envRes.data);
@@ -139,14 +139,19 @@ const Dashboard = () => {
         const incomeEnvRes = await fetchIncomeEnvelopes();
         setIncomeEnvelopes(incomeEnvRes.data);
       } catch (e) {
-        console.warn("Income envelopes fetch skipped or endpoint not ready:", e);
+        console.warn(
+          "Income envelopes fetch skipped or endpoint not ready:",
+          e,
+        );
       }
 
       await loadTransactions(1, false);
     } catch (err) {
       console.error(err);
     } finally {
-      setIsLoadingData(false);
+      setEnvelopesLoading(false);
+      setIncomeEnvelopesLoading(false);
+      if (isInitialLoad) setIsInitialLoad(false);
     }
   }, [loadTransactions]);
 
@@ -154,8 +159,8 @@ const Dashboard = () => {
     let isMounted = true;
 
     const fetchData = async () => {
-      setIsLoadingData(true);
-
+      setEnvelopesLoading(true);
+      setIncomeEnvelopesLoading(true);
       try {
         const envRes = await fetchEnvelopes();
         if (!isMounted) return;
@@ -166,16 +171,21 @@ const Dashboard = () => {
           if (!isMounted) return;
           setIncomeEnvelopes(incomeEnvRes.data);
         } catch (e) {
-          console.warn("Income envelopes fetch skipped or endpoint not ready:", e);
+          console.warn(
+            "Income envelopes fetch skipped or endpoint not ready:",
+            e,
+          );
         }
 
-          await loadTransactions(1, false);
-          if (!isMounted) return;
+        await loadTransactions(1, false);
+        if (!isMounted) return;
       } catch (err) {
         console.error(err);
       } finally {
         if (isMounted) {
-          setIsLoadingData(false);
+          setEnvelopesLoading(false);
+          setIncomeEnvelopesLoading(false);
+          if (isInitialLoad) setIsInitialLoad(false);
         }
       }
     };
@@ -213,6 +223,8 @@ const Dashboard = () => {
           }, 0);
 
         const summary = {
+          transactions: txs, // Required for graph rendering
+          incomeEnvelopes: incEnvs, // Required for analytics breakdown
           transactionCount: txs.length,
           incomeEnvelopeCount: incEnvs.length,
           totalIncome,
@@ -242,13 +254,11 @@ const Dashboard = () => {
     };
   }, [transactions, incomeEnvelopes, currency, conversionRate]);
 
-  // Expense Envelope Handlers
   const handleCreateEnvelope = async (e) => {
     e.preventDefault();
     if (!envName || !envAmount || isSubmitting) return;
 
     setIsSubmitting(true);
-
     try {
       const baseAmountInput = toBaseAmount(envAmount, currency, conversionRate);
 
@@ -320,13 +330,11 @@ const Dashboard = () => {
     }
   };
 
-  // Income Envelope Handlers
   const handleCreateIncomeEnvelope = async (e) => {
     e.preventDefault();
     if (!incomeEnvName || !incomeEnvAmount || isSubmitting) return;
 
     setIsSubmitting(true);
-
     try {
       const baseAmountInput = toBaseAmount(
         incomeEnvAmount,
@@ -405,10 +413,13 @@ const Dashboard = () => {
     }
   };
 
-  // Transfer Between Envelopes Handler
-  const handleTransferBetweenEnvelopes = async (type, fromId, toId, rawTransferAmount) => {
+  const handleTransferBetweenEnvelopes = async (
+    type,
+    fromId,
+    toId,
+    rawTransferAmount,
+  ) => {
     if (isSubmitting) return;
-
     setIsSubmitting(true);
 
     try {
@@ -423,8 +434,12 @@ const Dashboard = () => {
         const destEnv = envelopes.find((e) => e._id === toId);
         if (!sourceEnv || !destEnv) return;
 
-        const newSourceAmount = Math.max(0, (sourceEnv.allocatedAmount || 0) - baseTransferAmount);
-        const newDestAmount = (destEnv.allocatedAmount || 0) + baseTransferAmount;
+        const newSourceAmount = Math.max(
+          0,
+          (sourceEnv.allocatedAmount || 0) - baseTransferAmount,
+        );
+        const newDestAmount =
+          (destEnv.allocatedAmount || 0) + baseTransferAmount;
 
         await updateEnvelope(fromId, { allocatedAmount: newSourceAmount });
         await updateEnvelope(toId, { allocatedAmount: newDestAmount });
@@ -433,10 +448,16 @@ const Dashboard = () => {
         const destInc = incomeEnvelopes.find((e) => e._id === toId);
         if (!sourceInc || !destInc) return;
 
-        const newSourceAmount = Math.max(0, (sourceInc.allocatedAmount || 0) - baseTransferAmount);
-        const newDestAmount = (destInc.allocatedAmount || 0) + baseTransferAmount;
+        const newSourceAmount = Math.max(
+          0,
+          (sourceInc.allocatedAmount || 0) - baseTransferAmount,
+        );
+        const newDestAmount =
+          (destInc.allocatedAmount || 0) + baseTransferAmount;
 
-        await updateIncomeEnvelope(fromId, { allocatedAmount: newSourceAmount });
+        await updateIncomeEnvelope(fromId, {
+          allocatedAmount: newSourceAmount,
+        });
         await updateIncomeEnvelope(toId, { allocatedAmount: newDestAmount });
       }
 
@@ -461,8 +482,14 @@ const Dashboard = () => {
     setPaymentMethod(
       tx.paymentMethod ? tx.paymentMethod.toLowerCase() : "cash",
     );
-    setIncomeSource(tx.type === "expense" ? (tx.incomeSource?._id || tx.incomeSource || "") : "");
-    setTxIncomeEnvelope(tx.type === "income" ? (tx.incomeSource?._id || tx.incomeSource || "") : "");
+    setIncomeSource(
+      tx.type === "expense"
+        ? tx.incomeSource?._id || tx.incomeSource || ""
+        : "",
+    );
+    setTxIncomeEnvelope(
+      tx.type === "income" ? tx.incomeSource?._id || tx.incomeSource || "" : "",
+    );
     setPurpose(tx.purpose || "");
 
     if (tx.date) {
@@ -473,9 +500,9 @@ const Dashboard = () => {
     }
 
     setTaxPercentage(tx.taxPercentage ?? "");
-
-    const displayedTax =
-      tx.taxAmount ? fromBaseAmount(tx.taxAmount, currency, conversionRate) : "";
+    const displayedTax = tx.taxAmount
+      ? fromBaseAmount(tx.taxAmount, currency, conversionRate)
+      : "";
     setTaxAmount(displayedTax ?? "");
     setTaxApplication(tx.taxApplication || "exclusive");
 
@@ -507,14 +534,17 @@ const Dashboard = () => {
     if (isSubmitting) return;
 
     setIsSubmitting(true);
-
     try {
       let rawInputAmount = parseFloat(txAmount);
       let rawAmount = toBaseAmount(rawInputAmount, currency, conversionRate);
 
       let calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
       if (taxAmount) {
-        calculatedTaxAmount = toBaseAmount(calculatedTaxAmount, currency, conversionRate);
+        calculatedTaxAmount = toBaseAmount(
+          calculatedTaxAmount,
+          currency,
+          conversionRate,
+        );
       }
 
       let calculatedTaxPercentage = taxPercentage
@@ -544,9 +574,11 @@ const Dashboard = () => {
         envelopeId: txType === "expense" && txEnvelope ? txEnvelope : undefined,
         paymentMethod: paymentMethod,
         incomeSource:
-          txType === "expense" 
-            ? (incomeSource || undefined) 
-            : (txType === "income" ? (txIncomeEnvelope || undefined) : undefined),
+          txType === "expense"
+            ? incomeSource || undefined
+            : txType === "income"
+              ? txIncomeEnvelope || undefined
+              : undefined,
         purpose: purpose || undefined,
         taxPercentage: calculatedTaxPercentage || undefined,
         taxAmount: calculatedTaxAmount || undefined,
@@ -555,118 +587,13 @@ const Dashboard = () => {
       };
 
       if (editingTxId) {
-        const existingTx = (transactions || []).find((tx) => tx._id === editingTxId);
-
-        if (existingTx && existingTx.type === "expense" && transactionData.type === "expense") {
-          const linkedExpenseEnvelope = transactionData.envelopeId;
-          const currentEnvelopeSpent = getEnvelopeSpent(
-            linkedExpenseEnvelope,
-            transactions.filter((tx) => tx._id !== editingTxId),
-          );
-          const projectedEnvelopeSpend = currentEnvelopeSpent + finalAmount;
-          const selectedEnvelope = envelopes.find(
-            (env) => String(env._id) === String(linkedExpenseEnvelope),
-          );
-
-          if (
-            selectedEnvelope &&
-            projectedEnvelopeSpend > Number(selectedEnvelope.allocatedAmount || 0)
-          ) {
-            alert(
-              `Warning: this update would exceed the selected envelope budget (${symbol}${formatAmount(Number(selectedEnvelope.allocatedAmount || 0))}), but it can still be saved.`,
-            );
-          }
-        }
-
-        if (existingTx && existingTx.type === "income") {
-          const oldIncomeId = existingTx.incomeSource?._id || existingTx.incomeSource;
-          const newIncomeId = transactionData.incomeSource;
-          const oldAmount = Number(existingTx.amount || 0);
-
-          if (oldIncomeId && oldIncomeId === newIncomeId) {
-            const diff = finalAmount - oldAmount;
-            if (diff !== 0) {
-              const targetEnv = incomeEnvelopes.find((e) => e._id === oldIncomeId);
-              if (targetEnv) {
-                await updateIncomeEnvelope(oldIncomeId, {
-                  name: targetEnv.name,
-                  allocatedAmount: Math.max(0, Number(targetEnv.allocatedAmount || 0) + diff),
-                });
-              }
-            }
-          } else {
-            if (oldIncomeId) {
-              const oldEnv = incomeEnvelopes.find((e) => e._id === oldIncomeId);
-              if (oldEnv) {
-                await updateIncomeEnvelope(oldIncomeId, {
-                  name: oldEnv.name,
-                  allocatedAmount: Math.max(0, Number(oldEnv.allocatedAmount || 0) - oldAmount),
-                });
-              }
-            }
-            if (newIncomeId) {
-              const newEnv = incomeEnvelopes.find((e) => e._id === newIncomeId);
-              if (newEnv) {
-                await updateIncomeEnvelope(newIncomeId, {
-                  name: newEnv.name,
-                  allocatedAmount: Number(newEnv.allocatedAmount || 0) + finalAmount,
-                });
-              }
-            }
-          }
-        }
-
         const res = await updateTransaction(editingTxId, transactionData);
         setTransactions((prev) =>
           (prev || []).map((tx) => (tx._id === editingTxId ? res.data : tx)),
         );
         setEditingTxId(null);
-      } 
-      else {
-        if (
-          transactionData.type === "expense" &&
-          transactionData.incomeSource
-        ) {
-          const incomeId = transactionData.incomeSource;
-          const selectedIncEnv = incomeEnvelopes.find((e) => e._id === incomeId);
-          const spent = (transactions || [])
-            .filter(
-              (t) =>
-                t.type === "expense" &&
-                (t.incomeSource?._id === incomeId ||
-                  t.incomeSource === incomeId),
-            )
-            .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-          const incomeAmount = selectedIncEnv ? Number(selectedIncEnv.allocatedAmount || 0) : 0;
-          const remaining = incomeAmount - spent;
-          if (remaining < finalAmount) {
-            alert(
-              "Warning: this income envelope is short on remaining funds, but the expense can still be added.",
-            );
-          }
-        }
-
+      } else {
         const response = await addTransaction(transactionData);
-
-        if (transactionData.type === "income" && transactionData.incomeSource) {
-          const incomeId = transactionData.incomeSource;
-          const targetIncEnv = incomeEnvelopes.find((e) => e._id === incomeId);
-          if (targetIncEnv) {
-            const newAllocated = Number(targetIncEnv.allocatedAmount || 0) + finalAmount;
-            await updateIncomeEnvelope(incomeId, {
-              name: targetIncEnv.name,
-              allocatedAmount: newAllocated,
-            });
-            setIncomeEnvelopes((prev) =>
-              prev.map((e) =>
-                String(e._id) === String(incomeId)
-                  ? { ...e, allocatedAmount: newAllocated }
-                  : e,
-              ),
-            );
-          }
-        }
-
         if (txPage === 1) {
           setTransactions((prev) => {
             const base = prev || [];
@@ -676,16 +603,13 @@ const Dashboard = () => {
           });
         }
         setTxTotal((t) => t + 1);
-      }  
+      }
 
       handleCancelEditTransaction();
+      loadData();
     } catch (error) {
       console.error("Error saving transaction:", error);
-      const errorMsg =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.message;
-      alert("Failed to save transaction: " + errorMsg);
+      alert("Failed to save transaction.");
     } finally {
       setIsSubmitting(false);
     }
@@ -707,25 +631,6 @@ const Dashboard = () => {
     setIsSubmitting(true);
 
     try {
-      const targetTx = (transactions || []).find((tx) => tx._id === id);
-
-      if (targetTx?.type === "income" && targetTx.incomeSource) {
-        const incomeId = getLinkedId(targetTx.incomeSource);
-        const targetEnv = incomeEnvelopes.find((env) => String(env._id) === String(incomeId));
-        if (targetEnv) {
-          const newAllocated = Math.max(0, Number(targetEnv.allocatedAmount || 0) - Number(targetTx.amount || 0));
-          await updateIncomeEnvelope(incomeId, {
-            name: targetEnv.name,
-            allocatedAmount: newAllocated,
-          });
-          setIncomeEnvelopes((prev) =>
-            prev.map((e) =>
-              String(e._id) === String(incomeId) ? { ...e, allocatedAmount: newAllocated } : e,
-            ),
-          );
-        }
-      }
-
       await removeTransaction(id);
       if (editingTxId === id) {
         handleCancelEditTransaction();
@@ -737,39 +642,28 @@ const Dashboard = () => {
   };
 
   const handleImportTransactions = async (rows = []) => {
-    if (!rows.length) return;
-
-    if (isSubmitting) return;
+    if (!rows.length || isSubmitting) return;
     setIsSubmitting(true);
 
     try {
-      const batchSize = 10;
       let importedCount = 0;
-
-      for (let i = 0; i < rows.length; i += batchSize) {
-        const batch = rows.slice(i, i + batchSize);
+      for (let i = 0; i < rows.length; i += 10) {
+        const batch = rows.slice(i, i + 10);
         const results = await Promise.all(
           batch.map((row) =>
             addTransaction(row)
               .then(() => ({ ok: true }))
-              .catch((err) => {
-                console.error('Failed to import row:', row, err);
-                return { ok: false };
-              }),
+              .catch(() => ({ ok: false })),
           ),
         );
-
         importedCount += results.filter((r) => r.ok).length;
-
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((res) => setTimeout(res, 100));
       }
 
       if (importedCount > 0) {
         await loadTransactions(1, false);
         alert(`${importedCount} transaction(s) imported successfully.`);
       } else {
-        alert('No valid transactions were imported. Please check the CSV format.');
+        alert("No valid transactions were imported.");
       }
     } finally {
       setIsSubmitting(false);
@@ -788,33 +682,31 @@ const Dashboard = () => {
     .filter((t) => t.type === "expense")
     .reduce((acc, t) => {
       let taxVal = 0;
-      if (t.taxAmount) {
-        taxVal = Number(t.taxAmount);
-      } else if (t.taxPercentage && t.amount) {
+      if (t.taxAmount) taxVal = Number(t.taxAmount);
+      else if (t.taxPercentage && t.amount)
         taxVal = (t.amount * Number(t.taxPercentage)) / 100;
-      }
       return acc + taxVal;
     }, 0);
 
-  const isBusy = isSubmitting || isLoadingData;
+  const isBusy = isSubmitting || isInitialLoad;
 
   return (
     <div className="min-h-screen bg-slate-950/80 text-slate-100 p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:p-6 sm:pb-8 w-full max-w-full overflow-x-hidden">
-      {(isBusy || isLoadingData) && (
+      {isBusy && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-6 py-5 shadow-[0_20px_60px_rgba(15,23,42,0.45)]">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-6 py-5 shadow-xl">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-400" />
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-200">
-              {isLoadingData ? "Loading data" : "Processing"}
+              {isInitialLoad ? "Loading data" : "Processing"}
             </p>
           </div>
         </div>
       )}
 
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-8 w-full">
-        <Navbar/>
+        <Navbar />
 
-        <Suspense fallback={<div />}> 
+        <Suspense fallback={<div />}>
           <Currency
             loading={loading}
             conversionRate={conversionRate}
@@ -842,79 +734,82 @@ const Dashboard = () => {
           transactions={transactions}
         />
 
-        <Suspense fallback={<div />}> 
-        <Maincontent
-          handleUpdateTransaction={handleUpdateTransaction}
-          handleCreateEnvelope={handleCreateEnvelope}
-          envName={envName}
-          setEnvName={setEnvName}
-          envAmount={envAmount}
-          setEnvAmount={setEnvAmount}
-          envelopes={envelopes}
-          incomeEnvelopes={incomeEnvelopes}
-          incomeEnvName={incomeEnvName}
-          setIncomeEnvName={setIncomeEnvName}
-          incomeEnvAmount={incomeEnvAmount}
-          setIncomeEnvAmount={setIncomeEnvAmount}
-          handleCreateIncomeEnvelope={handleCreateIncomeEnvelope}
-          handleUpdateIncomeEnvelope={handleUpdateIncomeEnvelope}
-          handleDeleteIncomeEnvelope={handleDeleteIncomeEnvelope}
-          editingIncomeEnvId={editingIncomeEnvId}
-          setEditingIncomeEnvId={setEditingIncomeEnvId}
-          incomeFormRef={incomeFormRef}
-          handleTransferBetweenEnvelopes={handleTransferBetweenEnvelopes}
-          transactions={transactions}
-          handleDeleteEnvelope={handleDeleteEnvelope}
-          handleUpdateEnvelope={handleUpdateEnvelope}
-          editingEnvId={editingEnvId}
-          setEditingEnvId={setEditingEnvId}
-          handleCreateTransaction={handleCreateTransaction}
-          txTitle={txTitle}
-          setTxTitle={setTxTitle}
-          txAmount={txAmount}
-          setTxAmount={setTxAmount}
-          txType={txType}
-          setTxType={setTxType}
-          txEnvelope={txEnvelope}
-          setTxEnvelope={setTxEnvelope}
-          paymentMethod={paymentMethod}
-          setPaymentMethod={setPaymentMethod}
-          incomeSource={incomeSource}
-          setIncomeSource={setIncomeSource}
-          txIncomeEnvelope={txIncomeEnvelope}
-          setTxIncomeEnvelope={setTxIncomeEnvelope}
-          purpose={purpose}
-          setPurpose={setPurpose}
-          txDate={txDate}
-          setTxDate={setTxDate}
-          taxPercentage={taxPercentage}
-          setTaxPercentage={setTaxPercentage}
-          taxAmount={taxAmount}
-          setTaxAmount={setTaxAmount}
-          taxApplication={taxApplication}
-          setTaxApplication={setTaxApplication}
-          handleDeleteTransaction={handleDeleteTransaction}
-          handleImportTransactions={handleImportTransactions}
-          currency={currency}
-          conversionRate={conversionRate}
-          formatAmount={formatAmount}
-          editingTxId={editingTxId}
-          handleStartEditTransaction={handleStartEditTransaction}
-          handleCancelEditTransaction={handleCancelEditTransaction}
-          transactionFormRef={transactionFormRef}
-          envelopeFormRef={envelopeFormRef}
-          transactionSearch={transactionSearch}
-          setTransactionSearch={setTransactionSearch}
-          transactionTypeFilter={transactionTypeFilter}
-          setTransactionTypeFilter={setTransactionTypeFilter}
-          transactionSort={transactionSort}
-          setTransactionSort={setTransactionSort}
-          isSubmitting={isSubmitting}
-          loadTransactions={loadTransactions}
-          txPage={txPage}
-          txPages={txPages}
-          txTotal={txTotal}
-        />
+        <Suspense fallback={<div />}>
+          <Maincontent
+            handleUpdateTransaction={handleUpdateTransaction}
+            handleCreateEnvelope={handleCreateEnvelope}
+            envName={envName}
+            setEnvName={setEnvName}
+            envAmount={envAmount}
+            setEnvAmount={setEnvAmount}
+            envelopes={envelopes}
+            incomeEnvelopes={incomeEnvelopes}
+            incomeEnvName={incomeEnvName}
+            setIncomeEnvName={setIncomeEnvName}
+            incomeEnvAmount={incomeEnvAmount}
+            setIncomeEnvAmount={setIncomeEnvAmount}
+            handleCreateIncomeEnvelope={handleCreateIncomeEnvelope}
+            handleUpdateIncomeEnvelope={handleUpdateIncomeEnvelope}
+            handleDeleteIncomeEnvelope={handleDeleteIncomeEnvelope}
+            editingIncomeEnvId={editingIncomeEnvId}
+            setEditingIncomeEnvId={setEditingIncomeEnvId}
+            incomeFormRef={incomeFormRef}
+            handleTransferBetweenEnvelopes={handleTransferBetweenEnvelopes}
+            transactions={transactions}
+            handleDeleteEnvelope={handleDeleteEnvelope}
+            handleUpdateEnvelope={handleUpdateEnvelope}
+            editingEnvId={editingEnvId}
+            setEditingEnvId={setEditingEnvId}
+            handleCreateTransaction={handleCreateTransaction}
+            txTitle={txTitle}
+            setTxTitle={setTxTitle}
+            txAmount={txAmount}
+            setTxAmount={setTxAmount}
+            txType={txType}
+            setTxType={setTxType}
+            txEnvelope={txEnvelope}
+            setTxEnvelope={setTxEnvelope}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            incomeSource={incomeSource}
+            setIncomeSource={setIncomeSource}
+            txIncomeEnvelope={txIncomeEnvelope}
+            setTxIncomeEnvelope={setTxIncomeEnvelope}
+            purpose={purpose}
+            setPurpose={setPurpose}
+            txDate={txDate}
+            setTxDate={setTxDate}
+            taxPercentage={taxPercentage}
+            setTaxPercentage={setTaxPercentage}
+            taxAmount={taxAmount}
+            setTaxAmount={setTaxAmount}
+            taxApplication={taxApplication}
+            setTaxApplication={setTaxApplication}
+            handleDeleteTransaction={handleDeleteTransaction}
+            handleImportTransactions={handleImportTransactions}
+            currency={currency}
+            conversionRate={conversionRate}
+            formatAmount={formatAmount}
+            editingTxId={editingTxId}
+            handleStartEditTransaction={handleStartEditTransaction}
+            handleCancelEditTransaction={handleCancelEditTransaction}
+            transactionFormRef={transactionFormRef}
+            envelopeFormRef={envelopeFormRef}
+            transactionSearch={transactionSearch}
+            setTransactionSearch={setTransactionSearch}
+            transactionTypeFilter={transactionTypeFilter}
+            setTransactionTypeFilter={setTransactionTypeFilter}
+            transactionSort={transactionSort}
+            setTransactionSort={setTransactionSort}
+            isSubmitting={isSubmitting}
+            transactionsLoading={transactionsLoading}
+            envelopesLoading={envelopesLoading}
+            incomeEnvelopesLoading={incomeEnvelopesLoading}
+            loadTransactions={loadTransactions}
+            txPage={txPage}
+            txPages={txPages}
+            txTotal={txTotal}
+          />
         </Suspense>
       </div>
     </div>

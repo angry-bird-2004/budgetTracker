@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 const Transactions = ({
   envelopes,
@@ -10,13 +10,40 @@ const Transactions = ({
   handleUpdateEnvelope,
   handleDeleteEnvelope,
   isSubmitting,
+  envelopesLoading,
 }) => {
+  // Group transactions by envelope id to avoid repeated O(n*m) filters on render
+  const transactionsByEnvelope = useMemo(() => {
+    const map = Object.create(null);
+    if (!Array.isArray(transactions) || transactions.length === 0) return map;
+    for (const t of transactions) {
+      if (t.type !== "expense") continue;
+      const sourceRef = t.envelopeId || t.txExpenseEnvelope;
+      const sourceId =
+        typeof sourceRef === "object" && sourceRef !== null
+          ? sourceRef._id
+          : sourceRef;
+      const key = String(sourceId || "");
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    }
+    return map;
+  }, [transactions]);
+
   return (
     <>
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
         <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4 truncate">
           Budget Envelopes (Expense)
         </h2>
+        {envelopesLoading && (
+          <div className="mb-3">
+            <div className="inline-flex items-center gap-2 text-xs text-slate-400">
+              <div className="h-3 w-3 rounded-full animate-spin border-2 border-emerald-400/30 border-t-emerald-400" />
+              Loading envelopes...
+            </div>
+          </div>
+        )}
         {envelopes.length === 0 ? (
           <p className="text-xs text-slate-500">
             No expense envelopes created yet.
@@ -24,18 +51,8 @@ const Transactions = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {envelopes.map((env) => {
-              // Robustly check multiple possible property references for expense envelopes
-              const envelopeExpenses = transactions.filter((t) => {
-                if (t.type !== "expense") return false;
-
-                const sourceRef = t.envelopeId || t.txExpenseEnvelope;
-                const sourceId =
-                  typeof sourceRef === "object" && sourceRef !== null
-                    ? sourceRef._id
-                    : sourceRef;
-
-                return String(sourceId) === String(env._id);
-              });
+              const envelopeExpenses =
+                transactionsByEnvelope[String(env._id)] || [];
 
               const consumed = envelopeExpenses.reduce(
                 (acc, t) => acc + Number(t.amount || 0),
@@ -46,7 +63,10 @@ const Transactions = ({
               return (
                 <div
                   key={env._id}
-                  onClick={() => !isSubmitting && setSelectedEnvelopeId(isOpen ? null : env._id)}
+                  onClick={() =>
+                    !isSubmitting &&
+                    setSelectedEnvelopeId(isOpen ? null : env._id)
+                  }
                   className={`bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg cursor-pointer transition min-w-0 ${
                     isOpen ? "ring-1 ring-emerald-500" : ""
                   } ${isSubmitting ? "opacity-70 pointer-events-none" : ""}`}
@@ -151,4 +171,4 @@ const Transactions = ({
   );
 };
 
-export default Transactions;
+export default React.memo(Transactions);
