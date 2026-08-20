@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useMemo } from "react";
 
 const TransactionHistory = ({
   transactions,
@@ -20,6 +20,10 @@ const TransactionHistory = ({
   setTransactionSort,
 }) => {
   const fileInputRef = useRef(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10; // Number of items per page
 
   const parseCSVLine = (line) => {
     const values = [];
@@ -48,34 +52,47 @@ const TransactionHistory = ({
     return values.map((value) => value.trim());
   };
 
-  const filteredTransactions = transactions
-    .filter((tx) => {
-    const matchesType =
-      transactionTypeFilter === "all" || tx.type === transactionTypeFilter;
+  const filteredTransactions = useMemo(() => {
+    return transactions
+      .filter((tx) => {
+        const matchesType =
+          transactionTypeFilter === "all" || tx.type === transactionTypeFilter;
 
-    const searchText = transactionSearch.trim().toLowerCase();
-    const haystack = [
-      tx.title,
-      tx.purpose,
-      tx.paymentMethod,
-      tx.type,
-      tx.envelopeId?.name,
-      tx.incomeSource?.name,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+        const searchText = transactionSearch.trim().toLowerCase();
+        const haystack = [
+          tx.title,
+          tx.purpose,
+          tx.paymentMethod,
+          tx.type,
+          tx.envelopeId?.name,
+          tx.incomeSource?.name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-    const matchesSearch =
-      !searchText || haystack.includes(searchText);
+        const matchesSearch = !searchText || haystack.includes(searchText);
 
-      return matchesType && matchesSearch;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.date || 0).getTime();
-      const dateB = new Date(b.date || 0).getTime();
-      return transactionSort === "oldest" ? dateA - dateB : dateB - dateA;
-    });
+        return matchesType && matchesSearch;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.date || 0).getTime();
+        const dateB = new Date(b.date || 0).getTime();
+        return transactionSort === "oldest" ? dateA - dateB : dateB - dateA;
+      });
+  }, [transactions, transactionTypeFilter, transactionSearch, transactionSort]);
+
+  // Reset to page 1 whenever filters or search terms change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [transactionSearch, transactionTypeFilter, transactionSort]);
+
+  // Paginated slice
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize) || 1;
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTransactions.slice(start, start + pageSize);
+  }, [filteredTransactions, currentPage]);
 
   const exportTransactionsCSV = () => {
     const rows = filteredTransactions.map((tx) => ({
@@ -116,34 +133,33 @@ const TransactionHistory = ({
       const text = await file.text();
       const lines = text.split(/\r?\n/).filter((line) => line.trim());
       if (lines.length < 2) {
-        alert("The CSV file is empty or missing data.");
-        event.target.value = "";
+        alert('The CSV file is empty or missing data.');
+        event.target.value = '';
         return;
       }
 
       const headers = parseCSVLine(lines[0]).map((header) => header.trim().toLowerCase());
-      const rows = lines.slice(1).map((line) => {
-        const values = parseCSVLine(line);
-        return Object.fromEntries(
-          headers.map((header, index) => [header, values[index] ?? ""]),
-        );
-      });
+      const importedRows = [];
+      const CHUNK = 500;
 
-      const importedRows = rows
-        .map((row) => {
-          const type = String(row.type || row.Type || "").trim().toLowerCase();
-          if (!['income', 'expense'].includes(type)) {
-            return null;
-          }
+      for (let i = 1; i < lines.length; i += CHUNK) {
+        const chunk = lines.slice(i, i + CHUNK);
 
-          const rawAmount = Number(String(row.amount ?? row.Amount ?? "").replace(/[^0-9.-]/g, ""));
-          if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
-            return null;
-          }
+        for (const line of chunk) {
+          const values = parseCSVLine(line);
+          const row = Object.fromEntries(
+            headers.map((header, index) => [header, values[index] ?? '']),
+          );
 
-          const title = String(row.title || row.Title || row.purpose || row.Purpose || (type === "income" ? "Imported income" : "Imported expense")).trim();
-          const paymentMethod = String(row.paymentmethod || row.PaymentMethod || "cash").trim().toLowerCase() || "cash";
-          const purpose = String(row.purpose || row.Purpose || "").trim();
+          const type = String(row.type || row.Type || '').trim().toLowerCase();
+          if (!['income', 'expense'].includes(type)) continue;
+
+          const rawAmount = Number(String(row.amount ?? row.Amount ?? '').replace(/[^0-9.-]/g, ''));
+          if (!Number.isFinite(rawAmount) || rawAmount <= 0) continue;
+
+          const title = String(row.title || row.Title || row.purpose || row.Purpose || (type === 'income' ? 'Imported income' : 'Imported expense')).trim();
+          const paymentMethod = String(row.paymentmethod || row.PaymentMethod || 'cash').trim().toLowerCase() || 'cash';
+          const purpose = String(row.purpose || row.Purpose || '').trim();
           const dateValue = row.date || row.Date || new Date().toISOString();
           const date = new Date(dateValue);
           const normalizedDate = Number.isNaN(date.getTime()) ? new Date() : date;
@@ -157,44 +173,41 @@ const TransactionHistory = ({
             date: normalizedDate,
           };
 
-          if (type === "expense") {
-            const envelopeName = String(row.envelope || row.Envelope || "").trim();
+          if (type === 'expense') {
+            const envelopeName = String(row.envelope || row.Envelope || '').trim();
             const targetEnvelope = envelopeName
               ? envelopes.find((env) => env.name.toLowerCase() === envelopeName.toLowerCase())
               : null;
-            if (targetEnvelope) {
-              payload.envelopeId = targetEnvelope._id;
-            }
+            if (targetEnvelope) payload.envelopeId = targetEnvelope._id;
 
-            const incomeName = String(row.incomesource || row.IncomeSource || "").trim();
+            const incomeName = String(row.incomesource || row.IncomeSource || '').trim();
             const matchedIncome = incomeName
               ? incomeEnvelopes.find((env) => env.name.toLowerCase() === incomeName.toLowerCase())
               : null;
-            if (matchedIncome) {
-              payload.incomeSource = matchedIncome._id;
-            }
-          } else if (type === "income") {
-            const incomeName = String(row.incomesource || row.IncomeSource || row.envelope || row.Envelope || "").trim();
+            if (matchedIncome) payload.incomeSource = matchedIncome._id;
+          } else if (type === 'income') {
+            const incomeName = String(row.incomesource || row.IncomeSource || row.envelope || row.Envelope || '').trim();
             const matchedIncome = incomeName
               ? incomeEnvelopes.find((env) => env.name.toLowerCase() === incomeName.toLowerCase())
               : null;
-            if (matchedIncome) {
-              payload.incomeSource = matchedIncome._id;
-            }
+            if (matchedIncome) payload.incomeSource = matchedIncome._id;
           }
 
-          return payload;
-        })
-        .filter(Boolean);
+          importedRows.push(payload);
+        }
+
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((res) => setTimeout(res, 0));
+      }
 
       if (!importedRows.length) {
-        alert("No valid transaction rows were found in the CSV file.");
-        event.target.value = "";
+        alert('No valid transaction rows were found in the CSV file.');
+        event.target.value = '';
         return;
       }
 
       await handleImportTransactions(importedRows);
-      event.target.value = "";
+      event.target.value = '';
     } catch (error) {
       console.error("CSV import failed:", error);
       alert("CSV import failed. Please check the file format and try again.");
@@ -208,7 +221,7 @@ const TransactionHistory = ({
         <div className="flex flex-col gap-3 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-sm font-semibold tracking-wide text-slate-200 truncate">
-              Transaction History
+              Transaction History ({filteredTransactions.length})
             </h2>
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <button
@@ -282,7 +295,7 @@ const TransactionHistory = ({
           </div>
         ) : (
           <div className="space-y-3 min-w-0">
-            {filteredTransactions.map((tx) => {
+            {paginatedTransactions.map((tx) => {
               const isExpanded = expandedTxId === tx._id;
               return (
                 <div
@@ -435,6 +448,34 @@ const TransactionHistory = ({
                 </div>
               );
             })}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between">
+                <p className="text-xs text-slate-400">
+                  Showing page <span className="font-semibold text-slate-200">{currentPage}</span> of{" "}
+                  <span className="font-semibold text-slate-200">{totalPages}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-950 text-slate-200 hover:border-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-950 text-slate-200 hover:border-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

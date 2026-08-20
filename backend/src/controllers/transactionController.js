@@ -53,11 +53,30 @@ const getTransactions = async (req, res) => {
       query.date = { $gte: startOfYear, $lte: endOfYear };
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 500);
+    const skip = (page - 1) * limit;
+
+    const total = await Transaction.countDocuments(query);
+    const pages = Math.ceil(total / limit) || 1;
+
     const transactions = await Transaction.find(query)
       .populate("envelopeId", "name")
       .populate("incomeSource", "name allocatedAmount")
-      .sort({ date: -1 });
-    res.status(200).json(transactions);
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Use lean() to return plain objects (better performance)
+    const leanTx = await Transaction.find(query)
+      .populate("envelopeId", "name")
+      .populate("incomeSource", "name allocatedAmount")
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.status(200).json({ transactions: leanTx, total, page, pages });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

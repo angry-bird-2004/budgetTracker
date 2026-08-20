@@ -8,4 +8,7 @@ const envelopeSchema = new mongoose.Schema({
   isSystem: { type: Boolean, default: false } // To track the "Unallocated/Available" bucket
 });
 
+// Index common query fields to improve lookup performance
+envelopeSchema.index({ userId: 1, name: 1 });
+
 module.exports = mongoose.model('Envelope', envelopeSchema);

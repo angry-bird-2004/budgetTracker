@@ -2,7 +2,9 @@ const IncomeEnvelope = require('../models/IncomeEnvelope');
 
 const getIncomeEnvelopes = async (req, res) => {
   try {
-    const incomeEnvelopes = await IncomeEnvelope.find({ userId: req.user._id });
+    const incomeEnvelopes = await IncomeEnvelope.find({ userId: req.user._id })
+      .select('name allocatedAmount')
+      .lean();
     res.status(200).json(incomeEnvelopes);
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -8,23 +8,41 @@ const API_URL = import.meta.env.VITE_API_URL ||
 
 const API = axios.create({ baseURL: API_URL });
 
-// This attaches the token to every request automatically
-API.interceptors.request.use((config) => {
+// Cache parsed userInfo/token in memory to avoid repeated localStorage.parse costs
+let cachedToken = null;
+const loadCachedToken = () => {
   try {
     const userInfo = localStorage.getItem('userInfo');
-    if (!userInfo) return config;
-
+    if (!userInfo) return null;
     const parsed = JSON.parse(userInfo);
-    const token = parsed?.token;
+    cachedToken = parsed?.token || null;
+    return cachedToken;
+  } catch (e) {
+    localStorage.removeItem('userInfo');
+    cachedToken = null;
+    return null;
+  }
+};
 
+// initialize cache once
+loadCachedToken();
+
+// Keep cache in sync if storage changes in another tab (logout/login)
+window.addEventListener('storage', (e) => {
+  if (e.key === 'userInfo') loadCachedToken();
+});
+
+// Interceptor uses in-memory token
+API.interceptors.request.use((config) => {
+  try {
+    const token = cachedToken || loadCachedToken();
     if (token) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
-  } catch {
-    localStorage.removeItem('userInfo');
+  } catch (err) {
+    // fall back silently
   }
-
   return config;
 });
 
@@ -47,7 +65,8 @@ export const removeIncomeEnvelope = (id) => API.delete(`/income-envelopes/${id}`
 
 export const updateTransaction = (id, data) => API.put(`/transactions/${id}`, data);
 
-export const fetchTransactions = (period) => API.get(`/transactions?period=${period}`);
+export const fetchTransactions = (period, page = 1, limit = 50) =>
+  API.get(`/transactions?period=${period}&page=${page}&limit=${limit}`);
 export const addTransaction = (data) => API.post('/transactions', data);
 export const removeTransaction = (id) => API.delete(`/transactions/${id}`);
 

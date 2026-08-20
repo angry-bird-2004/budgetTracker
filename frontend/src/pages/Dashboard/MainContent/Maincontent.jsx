@@ -7,6 +7,7 @@ import TransferFund from "./TransferFund/TransferFund";
 import Transactions from "./ShowEnvelopes/Transactions/Transactions";
 import Incomes from "./ShowEnvelopes/Incomes/Incomes";
 import TransactionHistory from "./TransactionHIstory/TransactionHistory";
+import { fromBaseAmount } from "../../../utils/amounts"
 
 const Maincontent = ({
   handleCreateEnvelope,
@@ -15,7 +16,6 @@ const Maincontent = ({
   envAmount,
   setEnvAmount,
   envelopes,
-  // Income Envelopes Props
   incomeEnvelopes,
   incomeEnvName,
   setIncomeEnvName,
@@ -26,7 +26,6 @@ const Maincontent = ({
   handleDeleteIncomeEnvelope,
   editingIncomeEnvId,
   incomeFormRef,
-  // Transfer Feature Props
   handleTransferBetweenEnvelopes,
   transactions,
   handleDeleteEnvelope,
@@ -47,7 +46,6 @@ const Maincontent = ({
   setPaymentMethod,
   incomeSource,
   setIncomeSource,
-  // New prop for Income Envelope assignment during transaction creation
   txIncomeEnvelope,
   setTxIncomeEnvelope,
   purpose,
@@ -60,7 +58,12 @@ const Maincontent = ({
   setTaxAmount,
   handleDeleteTransaction,
   handleImportTransactions,
+  loadTransactions,
+  txPage,
+  txPages,
+  txTotal,
   currency,
+  conversionRate,
   formatAmount,
   editingTxId,
   handleStartEditTransaction,
@@ -112,7 +115,7 @@ const Maincontent = ({
     const source = list.find((env) => env._id === fromEnvId);
     if (!source) return;
 
-    let maxAmount = Number(source.allocatedAmount || 0);
+    let baseRemaining = 0;
 
     if (transferType === "expense") {
       const consumed = transactions
@@ -124,17 +127,28 @@ const Maincontent = ({
         )
         .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-      maxAmount = Math.max(0, Number(source.allocatedAmount || 0) - consumed);
+      baseRemaining = Math.max(0, Number(source.allocatedAmount || 0) - consumed);
+    } else {
+      const consumedIncome = transactions
+        .filter(
+          (t) =>
+            t.type === "expense" &&
+            ((t.incomeSource && t.incomeSource._id === source._id) ||
+              t.incomeSource === source._id),
+        )
+        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+      baseRemaining = Math.max(0, Number(source.allocatedAmount || 0) - consumedIncome);
     }
 
-    setTransferAmount(maxAmount.toString());
+    const displayedVal = fromBaseAmount(baseRemaining, currency, conversionRate);
+    setTransferAmount(displayedVal > 0 ? displayedVal.toFixed(2) : "0");
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-full overflow-x-hidden">
-      {/* Left Column: Forms (Transaction, Expense Envelope, Income Envelope) */}
+      {/* Left Column: Forms */}
       <div className="space-y-6 lg:col-span-1 w-full min-w-0">
-        {/* Transaction Form Card */}
         <CreateTransaction
           transactionFormRef={transactionFormRef}
           editingTxId={editingTxId}
@@ -172,7 +186,6 @@ const Maincontent = ({
           isSubmitting={isSubmitting}
         />
 
-        {/* Expense Envelope Manager Form */}
         <CreateExpenseEnvelope
           envelopeFormRef={envelopeFormRef}
           editingEnvId={editingEnvId}
@@ -185,7 +198,6 @@ const Maincontent = ({
           isSubmitting={isSubmitting}
         />
 
-        {/* Income Envelope Manager Form */}
         <CreateIncomeEnvelope
           incomeFormRef={incomeFormRef}
           editingIncomeEnvId={editingIncomeEnvId}
@@ -199,9 +211,8 @@ const Maincontent = ({
         />
       </div>
 
-      {/* Right Column: Envelopes, Income Envelopes, Transfer Controls & Transactions */}
+      {/* Right Column: Grids & Controls */}
       <div className="space-y-6 lg:col-span-2 w-full min-w-0">
-        {/* Global Transfer Trigger Bar */}
         <TransferFund
           showTransferModal={showTransferModal}
           setShowTransferModal={setShowTransferModal}
@@ -222,7 +233,6 @@ const Maincontent = ({
           isSubmitting={isSubmitting}
         />
 
-        {/* Budget Envelopes Summary Grid */}
         <Transactions
           envelopes={envelopes}
           transactions={transactions}
@@ -235,7 +245,6 @@ const Maincontent = ({
           isSubmitting={isSubmitting}
         />
 
-        {/* Income Envelopes Summary Grid */}
         <Incomes
           incomeEnvelopes={incomeEnvelopes}
           transactions={transactions}
@@ -248,7 +257,6 @@ const Maincontent = ({
           isSubmitting={isSubmitting}
         />
 
-        {/* Transactions History Feed */}
         <TransactionHistory
           transactions={transactions}
           envelopes={envelopes}
@@ -267,6 +275,10 @@ const Maincontent = ({
           setTransactionTypeFilter={setTransactionTypeFilter}
           transactionSort={transactionSort}
           setTransactionSort={setTransactionSort}
+          loadTransactions={loadTransactions}
+          txPage={txPage}
+          txPages={txPages}
+          txTotal={txTotal}
         />
       </div>
     </div>

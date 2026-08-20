@@ -2,6 +2,8 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const compression = require('compression');
+const helmet = require('helmet');
 
 dotenv.config();
 
@@ -13,6 +15,8 @@ if (process.env.MONGO_URI) {
 
 const app = express();
 app.use(express.json());
+app.use(helmet());
+app.use(compression());
 
 const allowedOrigins = [
   'http://localhost:5173',
