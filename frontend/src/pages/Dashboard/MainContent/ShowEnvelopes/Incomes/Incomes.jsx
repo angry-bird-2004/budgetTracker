@@ -10,12 +10,21 @@ const Incomes = ({
   handleUpdateIncomeEnvelope,
   handleDeleteIncomeEnvelope,
   isSubmitting,
+  incomeEnvelopesLoading,
 }) => {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
       <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4 truncate">
         Income Envelopes
       </h2>
+      {incomeEnvelopesLoading && (
+        <div className="mb-3">
+          <div className="inline-flex items-center gap-2 text-xs text-slate-400">
+            <div className="h-3 w-3 rounded-full animate-spin border-2 border-emerald-400/30 border-t-emerald-400" />
+            Loading income envelopes...
+          </div>
+        </div>
+      )}
       {incomeEnvelopes.length === 0 ? (
         <p className="text-xs text-slate-500">
           No income envelopes created yet.
@@ -23,31 +32,25 @@ const Incomes = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {incomeEnvelopes.map((inc) => {
-            // Robustly check multiple possible property names for income envelope links
             const envelopeIncomes = transactions.filter((t) => {
               if (t.type !== "income") return false;
-
               const sourceRef =
                 t.incomeSource || t.txIncomeEnvelope || t.envelopeId;
               const sourceId =
                 typeof sourceRef === "object" && sourceRef !== null
                   ? sourceRef._id
                   : sourceRef;
-
               return String(sourceId) === String(inc._id);
             });
 
-            // Calculate spent from source (expenses funded by this income envelope)
             const spentFromInc = transactions
               .filter((t) => {
                 if (t.type !== "expense") return false;
-
                 const sourceRef = t.incomeSource || t.txIncomeEnvelope;
                 const sourceId =
                   typeof sourceRef === "object" && sourceRef !== null
                     ? sourceRef._id
                     : sourceRef;
-
                 return String(sourceId) === String(inc._id);
               })
               .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -58,7 +61,10 @@ const Incomes = ({
             return (
               <div
                 key={inc._id}
-                onClick={() => !isSubmitting && setSelectedIncomeEnvId(isOpen ? null : inc._id)}
+                onClick={() =>
+                  !isSubmitting &&
+                  setSelectedIncomeEnvId(isOpen ? null : inc._id)
+                }
                 className={`bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg cursor-pointer transition min-w-0 ${
                   isOpen ? "ring-1 ring-emerald-500" : ""
                 } ${isSubmitting ? "opacity-70 pointer-events-none" : ""}`}
@@ -81,7 +87,7 @@ const Incomes = ({
                         e.stopPropagation();
                         handleUpdateIncomeEnvelope(inc._id);
                       }}
-                      className="text-xs text-emerald-400 hover:underline px-1 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+                      className="text-xs text-emerald-400 hover:underline px-1 py-0.5 disabled:opacity-50"
                     >
                       Edit
                     </button>
@@ -92,7 +98,7 @@ const Incomes = ({
                         e.stopPropagation();
                         handleDeleteIncomeEnvelope(inc._id);
                       }}
-                      className="text-xs text-rose-400 hover:underline px-1 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+                      className="text-xs text-rose-400 hover:underline px-1 py-0.5 disabled:opacity-50"
                     >
                       Delete
                     </button>
@@ -121,7 +127,6 @@ const Incomes = ({
                       {formatAmount(remainingInc)}
                     </p>
 
-                    {/* Linked Income Transactions List */}
                     <div className="pt-2 min-w-0">
                       <p className="font-semibold text-slate-400 mb-2 truncate">
                         Incomes in this envelope:

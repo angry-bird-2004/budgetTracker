@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-
 import CreateTransaction from "./CreateEnvelopes/CreateTransaction/CreateTransaction";
 import CreateExpenseEnvelope from "./CreateEnvelopes/CreateExpenseEnvelope/CreateExpenseEnvelope";
 import CreateIncomeEnvelope from "./CreateEnvelopes/CreateIncomeEnvelope/CreateIncomeEnvelope";
@@ -7,7 +6,7 @@ import TransferFund from "./TransferFund/TransferFund";
 import Transactions from "./ShowEnvelopes/Transactions/Transactions";
 import Incomes from "./ShowEnvelopes/Incomes/Incomes";
 import TransactionHistory from "./TransactionHIstory/TransactionHistory";
-import { fromBaseAmount } from "../../../utils/amounts"
+import { fromBaseAmount } from "../../../utils/amounts";
 
 const Maincontent = ({
   handleCreateEnvelope,
@@ -77,14 +76,16 @@ const Maincontent = ({
   transactionSort,
   setTransactionSort,
   isSubmitting,
+  transactionsLoading,
+  envelopesLoading,
+  incomeEnvelopesLoading,
 }) => {
   const [expandedTxId, setExpandedTxId] = useState(null);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState(null);
   const [selectedIncomeEnvId, setSelectedIncomeEnvId] = useState(null);
 
-  // Transfer State Controls
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferType, setTransferType] = useState("expense"); // 'expense' or 'income'
+  const [transferType, setTransferType] = useState("expense");
   const [fromEnvId, setFromEnvId] = useState("");
   const [toEnvId, setToEnvId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
@@ -116,7 +117,6 @@ const Maincontent = ({
     if (!source) return;
 
     let baseRemaining = 0;
-
     if (transferType === "expense") {
       const consumed = transactions
         .filter(
@@ -126,8 +126,10 @@ const Maincontent = ({
               t.envelopeId === source._id),
         )
         .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-      baseRemaining = Math.max(0, Number(source.allocatedAmount || 0) - consumed);
+      baseRemaining = Math.max(
+        0,
+        Number(source.allocatedAmount || 0) - consumed,
+      );
     } else {
       const consumedIncome = transactions
         .filter(
@@ -137,17 +139,22 @@ const Maincontent = ({
               t.incomeSource === source._id),
         )
         .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-      baseRemaining = Math.max(0, Number(source.allocatedAmount || 0) - consumedIncome);
+      baseRemaining = Math.max(
+        0,
+        Number(source.allocatedAmount || 0) - consumedIncome,
+      );
     }
 
-    const displayedVal = fromBaseAmount(baseRemaining, currency, conversionRate);
+    const displayedVal = fromBaseAmount(
+      baseRemaining,
+      currency,
+      conversionRate,
+    );
     setTransferAmount(displayedVal > 0 ? displayedVal.toFixed(2) : "0");
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-full overflow-x-hidden">
-      {/* Left Column: Forms */}
       <div className="space-y-6 lg:col-span-1 w-full min-w-0">
         <CreateTransaction
           transactionFormRef={transactionFormRef}
@@ -211,7 +218,6 @@ const Maincontent = ({
         />
       </div>
 
-      {/* Right Column: Grids & Controls */}
       <div className="space-y-6 lg:col-span-2 w-full min-w-0">
         <TransferFund
           showTransferModal={showTransferModal}
@@ -243,6 +249,7 @@ const Maincontent = ({
           handleUpdateEnvelope={handleUpdateEnvelope}
           handleDeleteEnvelope={handleDeleteEnvelope}
           isSubmitting={isSubmitting}
+          envelopesLoading={envelopesLoading}
         />
 
         <Incomes
@@ -255,6 +262,7 @@ const Maincontent = ({
           handleUpdateIncomeEnvelope={handleUpdateIncomeEnvelope}
           handleDeleteIncomeEnvelope={handleDeleteIncomeEnvelope}
           isSubmitting={isSubmitting}
+          incomeEnvelopesLoading={incomeEnvelopesLoading}
         />
 
         <TransactionHistory
@@ -279,6 +287,7 @@ const Maincontent = ({
           txPage={txPage}
           txPages={txPages}
           txTotal={txTotal}
+          transactionsLoading={transactionsLoading}
         />
       </div>
     </div>
