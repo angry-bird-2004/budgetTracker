@@ -19,6 +19,7 @@ import Analysis from "./Analysis/Analysis";
 import Header from "./Header/Header";
 import Maincontent from "./MainContent/Maincontent";
 import { useExchangeRate } from "../../Hooks/useExchangeRate";
+import { toBaseAmount, fromBaseAmount } from "../../utils/amounts";
 
 const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
@@ -33,7 +34,7 @@ const Dashboard = () => {
   // Helper utility to format and convert amounts anywhere in dashboard
   const formatAmount = (val) => {
     const num = Number(val) || 0;
-    const converted = currency === "PKR" ? num * conversionRate : num;
+    const converted = currency === "PKR" ? num : num / conversionRate;
     return converted.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -102,10 +103,7 @@ const Dashboard = () => {
     e.preventDefault();
     if (!envName || !envAmount) return;
 
-    const baseAmountInput =
-      currency === "PKR"
-        ? Number(envAmount) / conversionRate
-        : Number(envAmount);
+    const baseAmountInput = toBaseAmount(envAmount, currency, conversionRate);
 
     if (editingEnvId) {
       await updateEnvelope(editingEnvId, {
@@ -127,10 +125,11 @@ const Dashboard = () => {
     if (envelopeToEdit) {
       setEditingEnvId(envelopeToEdit._id);
       setEnvName(envelopeToEdit.name);
-      const displayedVal =
-        currency === "PKR"
-          ? envelopeToEdit.allocatedAmount * conversionRate
-          : envelopeToEdit.allocatedAmount;
+      const displayedVal = fromBaseAmount(
+        envelopeToEdit.allocatedAmount,
+        currency,
+        conversionRate,
+      );
       setEnvAmount(displayedVal.toFixed(2));
       setTimeout(() => {
         envelopeFormRef.current?.scrollIntoView({
@@ -156,10 +155,11 @@ const Dashboard = () => {
     e.preventDefault();
     if (!incomeEnvName || !incomeEnvAmount) return;
 
-    const baseAmountInput =
-      currency === "PKR"
-        ? Number(incomeEnvAmount) / conversionRate
-        : Number(incomeEnvAmount);
+    const baseAmountInput = toBaseAmount(
+      incomeEnvAmount,
+      currency,
+      conversionRate,
+    );
 
     if (editingIncomeEnvId) {
       await updateIncomeEnvelope(editingIncomeEnvId, {
@@ -184,10 +184,11 @@ const Dashboard = () => {
     if (incomeEnvToEdit) {
       setEditingIncomeEnvId(incomeEnvToEdit._id);
       setIncomeEnvName(incomeEnvToEdit.name);
-      const displayedVal =
-        currency === "PKR"
-          ? incomeEnvToEdit.allocatedAmount * conversionRate
-          : incomeEnvToEdit.allocatedAmount;
+      const displayedVal = fromBaseAmount(
+        incomeEnvToEdit.allocatedAmount,
+        currency,
+        conversionRate,
+      );
       setIncomeEnvAmount(displayedVal.toFixed(2));
       setTimeout(() => {
         incomeFormRef.current?.scrollIntoView({
@@ -211,8 +212,11 @@ const Dashboard = () => {
   // Transfer Between Envelopes Handler
   const handleTransferBetweenEnvelopes = async (type, fromId, toId, rawTransferAmount) => {
     try {
-      const baseTransferAmount =
-        currency === "PKR" ? rawTransferAmount / conversionRate : rawTransferAmount;
+      const baseTransferAmount = toBaseAmount(
+        rawTransferAmount,
+        currency,
+        conversionRate,
+      );
 
       if (type === "expense") {
         const sourceEnv = envelopes.find((e) => e._id === fromId);
@@ -248,8 +252,7 @@ const Dashboard = () => {
     setEditingTxId(tx._id);
     setTxTitle(tx.title || "");
 
-    const displayedAmount =
-      currency === "PKR" ? tx.amount * conversionRate : tx.amount;
+    const displayedAmount = fromBaseAmount(tx.amount, currency, conversionRate);
     setTxAmount(displayedAmount.toFixed(2));
 
     setTxType(tx.type || "expense");
@@ -271,9 +274,7 @@ const Dashboard = () => {
     setTaxPercentage(tx.taxPercentage ?? "");
 
     const displayedTax =
-      currency === "PKR" && tx.taxAmount
-        ? tx.taxAmount * conversionRate
-        : tx.taxAmount || "";
+      tx.taxAmount ? fromBaseAmount(tx.taxAmount, currency, conversionRate) : "";
     setTaxAmount(displayedTax ?? "");
     setTaxApplication(tx.taxApplication || "exclusive");
 
@@ -304,12 +305,12 @@ const Dashboard = () => {
     e.preventDefault();
     try {
       let rawInputAmount = parseFloat(txAmount);
-      let rawAmount =
-        currency === "PKR" ? rawInputAmount / conversionRate : rawInputAmount;
+      let rawAmount = toBaseAmount(rawInputAmount, currency, conversionRate);
 
       let calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
-      if (currency === "PKR" && taxAmount)
-        calculatedTaxAmount /= conversionRate;
+      if (taxAmount) {
+        calculatedTaxAmount = toBaseAmount(calculatedTaxAmount, currency, conversionRate);
+      }
 
       let calculatedTaxPercentage = taxPercentage
         ? parseFloat(taxPercentage)
