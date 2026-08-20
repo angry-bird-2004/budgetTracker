@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { fetchTransactions, fetchIncomeEnvelopes } from "../../../services/api";
 
 const AnalyticsPage = () => {
   const [analyticsState] = useState(() => {
@@ -11,16 +12,17 @@ const AnalyticsPage = () => {
           incomeEnvelopes: [],
           currency: "USD",
           conversionRate: 280,
+          // compatibility: older compact summary fields
+          transactionCount: 0,
+          totalIncome: 0,
+          totalExpense: 0,
+          totalTax: 0,
+          incomeEnvelopeCount: 0,
         };
       }
 
       const parsed = JSON.parse(raw);
-      return {
-        transactions: parsed.transactions || [],
-        incomeEnvelopes: parsed.incomeEnvelopes || [],
-        currency: parsed.currency || "USD",
-        conversionRate: parsed.conversionRate || 280,
-      };
+      return parsed;
     } catch {
       localStorage.removeItem("budgetTrackerAnalyticsData");
       return {
@@ -32,7 +34,29 @@ const AnalyticsPage = () => {
     }
   });
 
-  const { transactions, incomeEnvelopes, currency, conversionRate } = analyticsState;
+  // analyticsState may be either a full payload (transactions/incomeEnvelopes)
+  // or the compact summary produced by Dashboard. Normalize below.
+  const {
+    transactions = [],
+    incomeEnvelopes = [],
+    currency = 'USD',
+    conversionRate = 280,
+    // compact fields
+    transactionCount = 0,
+    totalIncome: compactTotalIncome,
+    totalExpense: compactTotalExpense,
+    totalTax: compactTotalTax,
+    incomeEnvelopeCount = 0,
+  } = analyticsState;
+
+  // Local fetched replacements when analyticsState provides only compact summary
+  const [fetchedTransactions, setFetchedTransactions] = useState([]);
+  const [fetchedIncomeEnvelopes, setFetchedIncomeEnvelopes] = useState([]);
+
+  // Effective arrays prefer full arrays from analyticsState, fall back to fetched ones
+  const effectiveTransactions = Array.isArray(transactions) && transactions.length > 0 ? transactions : fetchedTransactions;
+  const effectiveIncomeEnvelopes = Array.isArray(incomeEnvelopes) && incomeEnvelopes.length > 0 ? incomeEnvelopes : fetchedIncomeEnvelopes;
+
   const symbol = currency === "PKR" ? "Rs " : "$";
 
   const formatAmount = (value) => {
@@ -44,69 +68,101 @@ const AnalyticsPage = () => {
     });
   };
 
-  const trendData = useMemo(() => Array.from({ length: 6 }, (_, idx) => {
-    const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
-    const start = new Date(end.getFullYear(), end.getMonth(), 1);
-    const monthLabel = end.toLocaleDateString("en-US", { month: "short" });
+  const trendData = useMemo(() => {
+    if (!Array.isArray(effectiveTransactions) || effectiveTransactions.length === 0) return [];
+    return Array.from({ length: 6 }, (_, idx) => {
+      const now = new Date();
+      const end = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+      const start = new Date(end.getFullYear(), end.getMonth(), 1);
+      const monthLabel = end.toLocaleDateString("en-US", { month: "short" });
 
-    const income = transactions
-      .filter((tx) => {
-        if (tx.type !== "income") return false;
-        if (!tx.date) return false;
-        const date = new Date(tx.date);
-        return date >= start && date < new Date(end.getFullYear(), end.getMonth() + 1, 1);
-      })
-      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+      const income = effectiveTransactions
+        .filter((tx) => {
+          if (tx.type !== "income") return false;
+          if (!tx.date) return false;
+          const date = new Date(tx.date);
+          return date >= start && date < new Date(end.getFullYear(), end.getMonth() + 1, 1);
+        })
+        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
-    const expense = transactions
-      .filter((tx) => {
-        if (tx.type !== "expense") return false;
-        if (!tx.date) return false;
-        const date = new Date(tx.date);
-        return date >= start && date < new Date(end.getFullYear(), end.getMonth() + 1, 1);
-      })
-      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+      const expense = effectiveTransactions
+        .filter((tx) => {
+          if (tx.type !== "expense") return false;
+          if (!tx.date) return false;
+          const date = new Date(tx.date);
+          return date >= start && date < new Date(end.getFullYear(), end.getMonth() + 1, 1);
+        })
+        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
-    return { monthLabel, income, expense };
-  }), [transactions]);
+      return { monthLabel, income, expense };
+    });
+  }, [effectiveTransactions]);
 
-  const totalIncome = useMemo(
-    () => transactions.filter((tx) => tx.type === "income").reduce((sum, tx) => sum + Number(tx.amount || 0), 0),
-    [transactions],
-  );
+  // If compact summary provided totals, use them; otherwise compute from transactions
+  const computedTotalIncome = useMemo(() => {
+    if (typeof compactTotalIncome === 'number') return compactTotalIncome;
+    return (effectiveTransactions || []).filter((tx) => tx.type === 'income').reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }, [effectiveTransactions, compactTotalIncome]);
 
-  const totalExpense = useMemo(
-    () => transactions.filter((tx) => tx.type === "expense").reduce((sum, tx) => sum + Number(tx.amount || 0), 0),
-    [transactions],
-  );
+  const computedTotalExpense = useMemo(() => {
+    if (typeof compactTotalExpense === 'number') return compactTotalExpense;
+    return (effectiveTransactions || []).filter((tx) => tx.type === 'expense').reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }, [effectiveTransactions, compactTotalExpense]);
 
-  const totalTax = useMemo(
-    () => transactions.filter((tx) => tx.type === "expense").reduce((sum, tx) => {
+  const computedTotalTax = useMemo(() => {
+    if (typeof compactTotalTax === 'number') return compactTotalTax;
+    return (effectiveTransactions || []).filter((tx) => tx.type === 'expense').reduce((sum, tx) => {
       if (tx.taxAmount) return sum + Number(tx.taxAmount || 0);
       if (tx.taxPercentage && tx.amount) {
         return sum + (Number(tx.amount || 0) * Number(tx.taxPercentage || 0)) / 100;
       }
       return sum;
-    }, 0),
-    [transactions],
-  );
+    }, 0);
+  }, [effectiveTransactions, compactTotalTax]);
 
-  const totalAllocatedIncome = useMemo(
-    () => incomeEnvelopes.reduce((sum, env) => sum + Number(env.allocatedAmount || 0), 0),
-    [incomeEnvelopes],
-  );
+  const totalAllocatedIncome = useMemo(() => (effectiveIncomeEnvelopes || []).reduce((sum, env) => sum + Number(env.allocatedAmount || 0), 0), [effectiveIncomeEnvelopes]);
 
   const maxTrendValue = Math.max(1, ...trendData.flatMap((point) => [point.income, point.expense]));
 
   const overviewCards = [
-    { label: "Income", value: totalIncome, tone: "emerald" },
-    { label: "Expenses", value: totalExpense, tone: "rose" },
-    { label: "Tax", value: totalTax, tone: "amber" },
-    { label: "Net", value: totalIncome - totalExpense, tone: "indigo" },
+    { label: 'Income', value: computedTotalIncome, tone: 'emerald' },
+    { label: 'Expenses', value: computedTotalExpense, tone: 'rose' },
+    { label: 'Tax', value: computedTotalTax, tone: 'amber' },
+    { label: 'Net', value: computedTotalIncome - computedTotalExpense, tone: 'indigo' },
   ];
 
-  const hasData = transactions.length > 0 || incomeEnvelopes.length > 0;
+  const hasData = (Array.isArray(effectiveTransactions) && effectiveTransactions.length > 0) || (Array.isArray(effectiveIncomeEnvelopes) && effectiveIncomeEnvelopes.length > 0) || (transactionCount && transactionCount > 0) || (incomeEnvelopeCount && incomeEnvelopeCount > 0);
+
+  // Fetch recent transactions and income envelopes when analytics summary exists but arrays are absent
+  useEffect(() => {
+    let cancelled = false;
+    const shouldFetchTxs = (!Array.isArray(transactions) || transactions.length === 0) && transactionCount > 0;
+    const shouldFetchIncome = (!Array.isArray(incomeEnvelopes) || incomeEnvelopes.length === 0) && incomeEnvelopeCount > 0;
+
+    if (!shouldFetchTxs && !shouldFetchIncome) return undefined;
+
+    (async () => {
+      try {
+        if (shouldFetchTxs) {
+          // fetch a larger page to cover several months
+          const res = await fetchTransactions('all', 1, 500);
+          if (!cancelled && res && res.data && Array.isArray(res.data.transactions)) {
+            setFetchedTransactions(res.data.transactions);
+          }
+        }
+
+        if (shouldFetchIncome) {
+          const res2 = await fetchIncomeEnvelopes();
+          if (!cancelled && res2 && res2.data) setFetchedIncomeEnvelopes(res2.data);
+        }
+      } catch (e) {
+        // ignore fetch errors; page will still show summary
+        console.warn('Analytics fetch fallback failed:', e);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [transactions, incomeEnvelopes, transactionCount, incomeEnvelopeCount]);
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
@@ -258,11 +314,11 @@ const AnalyticsPage = () => {
                   </div>
                   <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                     <span>Actual inflow</span>
-                    <span className="font-semibold text-indigo-400">{symbol}{formatAmount(totalIncome)}</span>
+                    <span className="font-semibold text-indigo-400">{symbol}{formatAmount(computedTotalIncome)}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                     <span>Actual outflow</span>
-                    <span className="font-semibold text-rose-400">{symbol}{formatAmount(totalExpense)}</span>
+                    <span className="font-semibold text-rose-400">{symbol}{formatAmount(computedTotalExpense)}</span>
                   </div>
                 </div>
               </div>
