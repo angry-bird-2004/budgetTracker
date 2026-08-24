@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { fetchAllTransactions } from "../../../../../services/api";
+import { getPeriodRangeLabel } from "../../../../../utils/period";
 
 const Incomes = ({
   incomeEnvelopes,
-  transactions,
   selectedIncomeEnvId,
   setSelectedIncomeEnvId,
   symbol,
@@ -11,7 +12,45 @@ const Incomes = ({
   handleDeleteIncomeEnvelope,
   isSubmitting,
   incomeEnvelopesLoading,
+  period = "all",
 }) => {
+  const [linkedTxs, setLinkedTxs] = useState([]);
+  const [linkedLoading, setLinkedLoading] = useState(false);
+  const [linkedError, setLinkedError] = useState("");
+  const periodLabel = getPeriodRangeLabel(period);
+
+  useEffect(() => {
+    if (!selectedIncomeEnvId) {
+      setLinkedTxs([]);
+      setLinkedError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLinkedLoading(true);
+    setLinkedError("");
+
+    fetchAllTransactions(period, {
+      incomeSource: selectedIncomeEnvId,
+    })
+      .then(({ transactions }) => {
+        if (!cancelled) setLinkedTxs(transactions);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLinkedTxs([]);
+          setLinkedError("Could not load transactions for this envelope.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLinkedLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedIncomeEnvId, period]);
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
       <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4 truncate">
@@ -32,30 +71,11 @@ const Incomes = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {incomeEnvelopes.map((inc) => {
-            const envelopeIncomes = transactions.filter((t) => {
-              if (t.type !== "income") return false;
-              const sourceRef =
-                t.incomeSource || t.txIncomeEnvelope || t.envelopeId;
-              const sourceId =
-                typeof sourceRef === "object" && sourceRef !== null
-                  ? sourceRef._id
-                  : sourceRef;
-              return String(sourceId) === String(inc._id);
-            });
-
-            const spentFromInc = transactions
-              .filter((t) => {
-                if (t.type !== "expense") return false;
-                const sourceRef = t.incomeSource || t.txIncomeEnvelope;
-                const sourceId =
-                  typeof sourceRef === "object" && sourceRef !== null
-                    ? sourceRef._id
-                    : sourceRef;
-                return String(sourceId) === String(inc._id);
-              })
-              .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-            const remainingInc = inc.allocatedAmount - spentFromInc;
+            const spentFromInc = Number(inc.consumed || 0);
+            const remainingInc =
+              inc.currentBalance != null
+                ? Number(inc.currentBalance)
+                : Number(inc.allocatedAmount || 0) - spentFromInc;
             const isOpen = selectedIncomeEnvId === inc._id;
 
             return (
@@ -75,8 +95,8 @@ const Incomes = ({
                       {inc.name}
                     </p>
                     <p className="text-[11px] sm:text-xs text-emerald-400 truncate">
-                      Total: {symbol}
-                      {formatAmount(inc.allocatedAmount)}
+                      Balance: {symbol}
+                      {formatAmount(inc.currentBalance)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -108,20 +128,20 @@ const Incomes = ({
                 {isOpen && (
                   <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-300 space-y-2 min-w-0">
                     <p className="truncate">
-                      <strong className="text-slate-400">Total Income:</strong>{" "}
+                      <strong className="text-slate-400">Allocated:</strong>{" "}
                       {symbol}
                       {formatAmount(inc.allocatedAmount)}
                     </p>
                     <p className="truncate">
                       <strong className="text-slate-400">
-                        Spent from source:
+                        Consumed:
                       </strong>{" "}
                       {symbol}
                       {formatAmount(spentFromInc)}
                     </p>
                     <p className="truncate">
                       <strong className="text-slate-400">
-                        Remaining funds:
+                        Remaining:
                       </strong>{" "}
                       {symbol}
                       {formatAmount(remainingInc)}
@@ -129,15 +149,21 @@ const Incomes = ({
 
                     <div className="pt-2 min-w-0">
                       <p className="font-semibold text-slate-400 mb-2 truncate">
-                        Incomes in this envelope:
+                        Transactions in this envelope ({periodLabel}):
                       </p>
-                      {envelopeIncomes.length === 0 ? (
+                      {linkedLoading ? (
                         <p className="text-xs text-slate-500">
-                          No income transactions linked yet.
+                          Loading transactions...
+                        </p>
+                      ) : linkedError ? (
+                        <p className="text-xs text-rose-400">{linkedError}</p>
+                      ) : linkedTxs.length === 0 ? (
+                        <p className="text-xs text-slate-500">
+                          No transactions linked yet for {periodLabel}.
                         </p>
                       ) : (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                          {envelopeIncomes.map((t) => (
+                          {linkedTxs.map((t) => (
                             <div
                               key={t._id}
                               className="flex justify-between items-center gap-2 min-w-0"
@@ -152,8 +178,15 @@ const Incomes = ({
                                     : "-"}
                                 </p>
                               </div>
-                              <div className="text-xs font-semibold text-emerald-400 shrink-0">
-                                +{symbol}
+                              <div
+                                className={`text-xs font-semibold shrink-0 ${
+                                  t.type === "income"
+                                    ? "text-emerald-400"
+                                    : "text-rose-400"
+                                }`}
+                              >
+                                {t.type === "income" ? "+" : "-"}
+                                {symbol}
                                 {formatAmount(t.amount)}
                               </div>
                             </div>

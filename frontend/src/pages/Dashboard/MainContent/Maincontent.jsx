@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import CreateTransaction from "./CreateEnvelopes/CreateTransaction/CreateTransaction";
+import FillAccounts from "./CreateEnvelopes/FillAccounts/FillAccounts";
 import CreateExpenseEnvelope from "./CreateEnvelopes/CreateExpenseEnvelope/CreateExpenseEnvelope";
 import CreateIncomeEnvelope from "./CreateEnvelopes/CreateIncomeEnvelope/CreateIncomeEnvelope";
 import TransferFund from "./TransferFund/TransferFund";
 import Transactions from "./ShowEnvelopes/Transactions/Transactions";
 import Incomes from "./ShowEnvelopes/Incomes/Incomes";
 import TransactionHistory from "./TransactionHIstory/TransactionHistory";
-import { fromBaseAmount } from "../../../utils/amounts";
+import { fromBaseAmount, toBaseAmount } from "../../../utils/amounts";
 
 const Maincontent = ({
   handleCreateEnvelope,
@@ -31,12 +32,14 @@ const Maincontent = ({
   handleUpdateEnvelope,
   editingEnvId,
   handleCreateTransaction,
+  handleFillAccount,
   txTitle,
   setTxTitle,
   txAmount,
   setTxAmount,
   txType,
   setTxType,
+  editingTxKind,
   txEnvelope,
   setTxEnvelope,
   taxApplication,
@@ -55,12 +58,25 @@ const Maincontent = ({
   setTaxPercentage,
   taxAmount,
   setTaxAmount,
+  fillTitle,
+  setFillTitle,
+  fillAmount,
+  setFillAmount,
+  fillPaymentMethod,
+  setFillPaymentMethod,
+  fillPurpose,
+  setFillPurpose,
+  fillDate,
+  setFillDate,
   handleDeleteTransaction,
   handleImportTransactions,
+  handleExportTransactions,
   loadTransactions,
   txPage,
   txPages,
   txTotal,
+  txLimit,
+  period = "all",
   currency,
   conversionRate,
   formatAmount,
@@ -68,6 +84,7 @@ const Maincontent = ({
   handleStartEditTransaction,
   handleCancelEditTransaction,
   transactionFormRef,
+  fillAccountsFormRef,
   envelopeFormRef,
   transactionSearch,
   setTransactionSearch,
@@ -92,23 +109,48 @@ const Maincontent = ({
 
   const symbol = currency === "PKR" ? "Rs " : "$";
 
-  const executeTransfer = (e) => {
+  const executeTransfer = async (e) => {
     e.preventDefault();
     if (!fromEnvId || !toEnvId || !transferAmount) return;
     if (fromEnvId === toEnvId) {
       alert("Source and Destination envelopes cannot be the same.");
       return;
     }
-    handleTransferBetweenEnvelopes(
-      transferType,
-      fromEnvId,
-      toEnvId,
-      parseFloat(transferAmount),
+
+    const parsedAmount = parseFloat(transferAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      alert("Enter a valid transfer amount.");
+      return;
+    }
+
+    const list = transferType === "expense" ? envelopes : incomeEnvelopes;
+    const source = list.find((env) => env._id === fromEnvId);
+    const remaining = Math.max(
+      0,
+      source?.currentBalance != null
+        ? Number(source.currentBalance)
+        : Number(source?.allocatedAmount || 0) - Number(source?.consumed || 0),
     );
-    setShowTransferModal(false);
-    setFromEnvId("");
-    setToEnvId("");
-    setTransferAmount("");
+    const baseAmount = toBaseAmount(parsedAmount, currency, conversionRate);
+    if (baseAmount > remaining) {
+      alert("Transfer exceeds remaining funds in the source envelope.");
+      return;
+    }
+
+    try {
+      await handleTransferBetweenEnvelopes(
+        transferType,
+        fromEnvId,
+        toEnvId,
+        parsedAmount,
+      );
+      setShowTransferModal(false);
+      setFromEnvId("");
+      setToEnvId("");
+      setTransferAmount("");
+    } catch {
+      // Keep the modal open so the user can correct the amount.
+    }
   };
 
   const handleMaxTransfer = () => {
@@ -116,34 +158,12 @@ const Maincontent = ({
     const source = list.find((env) => env._id === fromEnvId);
     if (!source) return;
 
-    let baseRemaining = 0;
-    if (transferType === "expense") {
-      const consumed = transactions
-        .filter(
-          (t) =>
-            t.type === "expense" &&
-            ((t.envelopeId && t.envelopeId._id === source._id) ||
-              t.envelopeId === source._id),
-        )
-        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-      baseRemaining = Math.max(
-        0,
-        Number(source.allocatedAmount || 0) - consumed,
-      );
-    } else {
-      const consumedIncome = transactions
-        .filter(
-          (t) =>
-            t.type === "expense" &&
-            ((t.incomeSource && t.incomeSource._id === source._id) ||
-              t.incomeSource === source._id),
-        )
-        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-      baseRemaining = Math.max(
-        0,
-        Number(source.allocatedAmount || 0) - consumedIncome,
-      );
-    }
+    const baseRemaining = Math.max(
+      0,
+      source.currentBalance != null
+        ? Number(source.currentBalance)
+        : Number(source.allocatedAmount || 0) - Number(source.consumed || 0),
+    );
 
     const displayedVal = fromBaseAmount(
       baseRemaining,
@@ -158,7 +178,7 @@ const Maincontent = ({
       <div className="space-y-6 lg:col-span-1 w-full min-w-0">
         <CreateTransaction
           transactionFormRef={transactionFormRef}
-          editingTxId={editingTxId}
+          editingTxId={editingTxKind === "fill" ? null : editingTxId}
           handleCancelEditTransaction={handleCancelEditTransaction}
           handleCreateTransaction={handleCreateTransaction}
           txType={txType}
@@ -171,10 +191,7 @@ const Maincontent = ({
           txEnvelope={txEnvelope}
           setTxEnvelope={setTxEnvelope}
           envelopes={envelopes}
-          txIncomeEnvelope={txIncomeEnvelope}
-          setTxIncomeEnvelope={setTxIncomeEnvelope}
           incomeEnvelopes={incomeEnvelopes}
-          transactions={transactions}
           formatAmount={formatAmount}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
@@ -190,6 +207,29 @@ const Maincontent = ({
           setTaxAmount={setTaxAmount}
           taxApplication={taxApplication}
           setTaxApplication={setTaxApplication}
+          isSubmitting={isSubmitting}
+        />
+
+        <FillAccounts
+          fillAccountsFormRef={fillAccountsFormRef}
+          editingTxId={editingTxKind === "fill" ? editingTxId : null}
+          handleCancelEditTransaction={handleCancelEditTransaction}
+          handleFillAccount={handleFillAccount}
+          fillTitle={fillTitle}
+          setFillTitle={setFillTitle}
+          fillAmount={fillAmount}
+          setFillAmount={setFillAmount}
+          symbol={symbol}
+          formatAmount={formatAmount}
+          incomeEnvelopes={incomeEnvelopes}
+          txIncomeEnvelope={txIncomeEnvelope}
+          setTxIncomeEnvelope={setTxIncomeEnvelope}
+          fillPaymentMethod={fillPaymentMethod}
+          setFillPaymentMethod={setFillPaymentMethod}
+          fillPurpose={fillPurpose}
+          setFillPurpose={setFillPurpose}
+          fillDate={fillDate}
+          setFillDate={setFillDate}
           isSubmitting={isSubmitting}
         />
 
@@ -241,7 +281,6 @@ const Maincontent = ({
 
         <Transactions
           envelopes={envelopes}
-          transactions={transactions}
           selectedEnvelopeId={selectedEnvelopeId}
           setSelectedEnvelopeId={setSelectedEnvelopeId}
           symbol={symbol}
@@ -250,11 +289,11 @@ const Maincontent = ({
           handleDeleteEnvelope={handleDeleteEnvelope}
           isSubmitting={isSubmitting}
           envelopesLoading={envelopesLoading}
+          period={period}
         />
 
         <Incomes
           incomeEnvelopes={incomeEnvelopes}
-          transactions={transactions}
           selectedIncomeEnvId={selectedIncomeEnvId}
           setSelectedIncomeEnvId={setSelectedIncomeEnvId}
           symbol={symbol}
@@ -263,6 +302,7 @@ const Maincontent = ({
           handleDeleteIncomeEnvelope={handleDeleteIncomeEnvelope}
           isSubmitting={isSubmitting}
           incomeEnvelopesLoading={incomeEnvelopesLoading}
+          period={period}
         />
 
         <TransactionHistory
@@ -276,6 +316,7 @@ const Maincontent = ({
           handleStartEditTransaction={handleStartEditTransaction}
           handleDeleteTransaction={handleDeleteTransaction}
           handleImportTransactions={handleImportTransactions}
+          handleExportTransactions={handleExportTransactions}
           isSubmitting={isSubmitting}
           transactionSearch={transactionSearch}
           setTransactionSearch={setTransactionSearch}
@@ -287,7 +328,9 @@ const Maincontent = ({
           txPage={txPage}
           txPages={txPages}
           txTotal={txTotal}
+          txLimit={txLimit}
           transactionsLoading={transactionsLoading}
+          period={period}
         />
       </div>
     </div>

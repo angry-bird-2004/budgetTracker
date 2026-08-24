@@ -1,64 +1,43 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { getPeriodRangeLabel } from "../../../utils/period";
 
 const Header = ({
   totalIncome,
+  totalExpense = 0,
+  totalTax = 0,
   currency = "USD",
   formatAmount,
   incomeEnvelopes = [],
-  transactions = [],
+  period = "all",
 }) => {
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
   const symbol = currency === "PKR" ? "Rs " : "$";
+  const periodLabel = getPeriodRangeLabel(period);
 
   const isAll = selectedEnvelopeId === "all";
 
-  // Find the currently selected income envelope object if any
   const selectedEnv = incomeEnvelopes.find((e) => e._id === selectedEnvelopeId);
 
-  // 1. Calculate Total Income:
-  // Sum up all income envelope allocated amounts PLUS any explicit income transactions 
-  // that might not be tied to an envelope, or ensure the base pool of all income envelopes is counted.
   const sumOfIncomeEnvelopes = incomeEnvelopes.reduce(
     (acc, env) => acc + Number(env.allocatedAmount || 0),
     0
   );
-  
-  // If totalIncome prop only tracks transactions, let's combine it with the income envelopes' base allocations
-  // to ensure the initial envelope amounts are fully accounted for.
+
   const overallIncome = Math.max(totalIncome, sumOfIncomeEnvelopes);
 
   const displayIncome = isAll
     ? overallIncome
     : Number(selectedEnv?.allocatedAmount || 0);
 
-  // 2. Calculate Filtered Expenses (transactions linked to this specific income envelope)
-  const filteredExpenseTransactions = isAll
-    ? transactions.filter((t) => t.type === "expense")
-    : transactions.filter(
-        (t) =>
-          t.type === "expense" &&
-          (t.incomeSource?._id === selectedEnvelopeId ||
-            t.incomeSource === selectedEnvelopeId)
-      );
+  const displayExpense = isAll
+    ? Number(totalExpense || 0)
+    : Number(selectedEnv?.consumed || 0);
 
-  const displayExpense = filteredExpenseTransactions.reduce(
-    (acc, t) => acc + Number(t.amount || 0),
-    0
-  );
+  const displayTax = isAll
+    ? Number(totalTax || 0)
+    : Number(selectedEnv?.tax || 0);
 
-  // 3. Calculate Tax based on filtered expenses
-  const displayTax = filteredExpenseTransactions.reduce((acc, t) => {
-    let taxVal = 0;
-    if (t.taxAmount) {
-      taxVal = Number(t.taxAmount);
-    } else if (t.taxPercentage && t.amount) {
-      taxVal = (t.amount * Number(t.taxPercentage)) / 100;
-    }
-    return acc + taxVal;
-  }, 0);
-
-  // 4. Calculate Net Savings (Total Income Pool minus Expenses consumed from it)
   const displaySavings = displayIncome - displayExpense;
 
   return (
@@ -113,11 +92,11 @@ const Header = ({
             {symbol}
             {formatAmount(displayIncome)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Allocated in: {selectedEnv?.name}
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Posted income (${periodLabel})`
+              : `Allocated in: ${selectedEnv?.name} (all-time)`}
+          </p>
         </div>
 
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
@@ -128,11 +107,11 @@ const Header = ({
             {symbol}
             {formatAmount(displayExpense)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Spent from this income envelope
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Posted expenses (${periodLabel})`
+              : "Spent from this income envelope (all-time)"}
+          </p>
         </div>
 
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
@@ -143,11 +122,11 @@ const Header = ({
             {symbol}
             {formatAmount(displayTax)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Tax from linked expenses
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Tax in posted expenses (${periodLabel})`
+              : "Tax from linked expenses (all-time)"}
+          </p>
         </div>
 
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
@@ -162,11 +141,11 @@ const Header = ({
             {symbol}
             {formatAmount(displaySavings)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Pool minus envelope expenses
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Income minus expenses (${periodLabel})`
+              : "Pool minus envelope expenses (all-time)"}
+          </p>
         </div>
       </div>
 

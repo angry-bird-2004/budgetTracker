@@ -1,10 +1,18 @@
 import React, { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+const navButtonClass = (active, hoverClass) =>
+  `rounded-lg border px-3 py-1.5 text-[11px] font-medium transition active:scale-[0.98] ${
+    active
+      ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
+      : `border-slate-700 bg-slate-800/80 text-slate-200 ${hoverClass}`
+  }`;
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (!user) return null;
 
@@ -18,16 +26,23 @@ const Navbar = () => {
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-[11px] font-medium text-slate-200 transition hover:border-emerald-500/60 hover:text-emerald-300 active:scale-[0.98]"
+            className={navButtonClass(location.pathname === '/', 'hover:border-emerald-500/60 hover:text-emerald-300')}
           >
             Dashboard
           </button>
           <button
             type="button"
             onClick={() => navigate('/analytics')}
-            className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-[11px] font-medium text-slate-200 transition hover:border-indigo-500/60 hover:text-indigo-300 active:scale-[0.98]"
+            className={navButtonClass(location.pathname === '/analytics', 'hover:border-indigo-500/60 hover:text-indigo-300')}
           >
             Analytics
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/settings')}
+            className={navButtonClass(location.pathname === '/settings', 'hover:border-amber-500/60 hover:text-amber-300')}
+          >
+            Settings
           </button>
         </div>
       </div>

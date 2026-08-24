@@ -8,12 +8,16 @@ const API_URL = import.meta.env.VITE_API_URL ||
 
 const API = axios.create({ baseURL: API_URL });
 
-// Cache parsed userInfo/token in memory to avoid repeated localStorage.parse costs
-let cachedToken = null;
+// undefined = not loaded yet, null = logged out, string = active token
+let cachedToken = undefined;
+
 const loadCachedToken = () => {
   try {
     const userInfo = localStorage.getItem('userInfo');
-    if (!userInfo) return null;
+    if (!userInfo) {
+      cachedToken = null;
+      return null;
+    }
     const parsed = JSON.parse(userInfo);
     cachedToken = parsed?.token || null;
     return cachedToken;
@@ -24,18 +28,19 @@ const loadCachedToken = () => {
   }
 };
 
-// initialize cache once
+export const setAuthToken = (token) => {
+  cachedToken = token || null;
+};
+
 loadCachedToken();
 
-// Keep cache in sync if storage changes in another tab (logout/login)
 window.addEventListener('storage', (e) => {
   if (e.key === 'userInfo') loadCachedToken();
 });
 
-// Interceptor uses in-memory token
 API.interceptors.request.use((config) => {
   try {
-    const token = cachedToken || loadCachedToken();
+    const token = cachedToken === undefined ? loadCachedToken() : cachedToken;
     if (token) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
@@ -54,8 +59,8 @@ export const registerAPI = (data) => API.post('/auth/register', data);
 export const fetchEnvelopes = () => API.get('/envelopes');
 export const addEnvelope = (data) => API.post('/envelopes', data);
 export const removeEnvelope = (id) => API.delete(`/envelopes/${id}`);
-export const postFill = (data) => API.post('/transactions/fill', data);
 export const updateEnvelope = (id, data) => API.put(`/envelopes/${id}`, data);
+export const transferFunds = (data) => API.post('/envelopes/transfer', data);
 
 // Income Envelope services
 export const fetchIncomeEnvelopes = () => API.get('/income-envelopes');
@@ -65,9 +70,46 @@ export const removeIncomeEnvelope = (id) => API.delete(`/income-envelopes/${id}`
 
 export const updateTransaction = (id, data) => API.put(`/transactions/${id}`, data);
 
-export const fetchTransactions = (period, page = 1, limit = 50) =>
-  API.get(`/transactions?period=${period}&page=${page}&limit=${limit}`);
+export const fetchTransactions = (period, page = 1, limit = 50, extras = {}) => {
+  const params = new URLSearchParams({
+    period: period || 'all',
+    page: String(page),
+    limit: String(limit),
+  });
+  const search = extras.search?.trim();
+  if (search) params.set('search', search);
+  if (extras.type && extras.type !== 'all') params.set('type', extras.type);
+  if (extras.sort) params.set('sort', extras.sort);
+  if (extras.envelopeId) params.set('envelopeId', extras.envelopeId);
+  if (extras.incomeSource) params.set('incomeSource', extras.incomeSource);
+  params.set('tzOffset', String(new Date().getTimezoneOffset()));
+  return API.get(`/transactions?${params.toString()}`);
+};
+
+export const fetchAllTransactions = async (period, extras = {}, pageLimit = 100) => {
+  const transactions = [];
+  let page = 1;
+  let pages = 1;
+  let total = 0;
+  let totals = { income: 0, expense: 0, tax: 0 };
+
+  do {
+    const res = await fetchTransactions(period, page, pageLimit, extras);
+    const batch = Array.isArray(res.data?.transactions) ? res.data.transactions : [];
+    transactions.push(...batch);
+    pages = Number(res.data?.pages) || 1;
+    total = Number(res.data?.total) || 0;
+    if (res.data?.totals) totals = res.data.totals;
+    page += 1;
+  } while (page <= pages && page <= 50);
+
+  return { transactions, total, totals };
+};
+
 export const addTransaction = (data) => API.post('/transactions', data);
 export const removeTransaction = (id) => API.delete(`/transactions/${id}`);
+
+export const fetchSettings = () => API.get('/settings');
+export const updateSettings = (data) => API.put('/settings', data);
 
 export default API;

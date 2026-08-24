@@ -21,7 +21,11 @@ const TransferFund = ({
 }) => {
   const sourceList = transferType === "expense" ? envelopes : incomeEnvelopes;
   const availableSource = sourceList.find((env) => env._id === fromEnvId);
-  const availableBalance = Number(availableSource?.allocatedAmount || 0);
+  const availableBalance =
+    availableSource?.currentBalance != null
+      ? Number(availableSource.currentBalance)
+      : Number(availableSource?.allocatedAmount || 0) -
+        Number(availableSource?.consumed || 0);
 
   return (
     <>

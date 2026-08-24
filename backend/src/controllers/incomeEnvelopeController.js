@@ -1,11 +1,61 @@
 const IncomeEnvelope = require('../models/IncomeEnvelope');
+const Transaction = require('../models/Transaction');
+const { taxAmountExpr } = require('../utils/taxAmountExpr');
 
 const getIncomeEnvelopes = async (req, res) => {
   try {
-    const incomeEnvelopes = await IncomeEnvelope.find({ userId: req.user._id })
-      .select('name allocatedAmount')
-      .lean();
-    res.status(200).json(incomeEnvelopes);
+    const [stats, incomeEnvelopes] = await Promise.all([
+      Transaction.aggregate([
+        {
+          $match: {
+            userId: req.user._id,
+            incomeSource: { $ne: null },
+            type: { $in: ['expense', 'income'] },
+          },
+        },
+        {
+          $group: {
+            _id: '$incomeSource',
+            consumed: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0],
+              },
+            },
+            income: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0],
+              },
+            },
+            tax: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'expense'] }, taxAmountExpr, 0],
+              },
+            },
+          },
+        },
+      ]),
+      IncomeEnvelope.find({ userId: req.user._id })
+        .select('name allocatedAmount')
+        .lean(),
+    ]);
+
+    const statsBySource = new Map(
+      stats.map((stat) => [String(stat._id), stat]),
+    );
+
+    const result = incomeEnvelopes.map((env) => {
+      const stat = statsBySource.get(String(env._id));
+      const consumed = stat?.consumed || 0;
+      const income = stat?.income || 0;
+      return {
+        ...env,
+        consumed,
+        tax: stat?.tax || 0,
+        currentBalance: (env.allocatedAmount || 0) + income - consumed,
+      };
+    });
+
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

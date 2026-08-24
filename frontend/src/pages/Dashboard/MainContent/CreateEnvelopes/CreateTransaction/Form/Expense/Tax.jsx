@@ -1,7 +1,6 @@
 import React from "react";
 
 const Tax = ({
-  txType,
   taxPercentage,
   setTaxPercentage,
   taxAmount,
@@ -10,7 +9,6 @@ const Tax = ({
   setTaxApplication,
   symbol,
 }) => {
-  if (txType !== "expense") return null;
   return (
     <div className="space-y-3 pt-2 border-t border-slate-800 min-w-0">
       <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">

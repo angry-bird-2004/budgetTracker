@@ -9,8 +9,7 @@ const Currency = ({
   setIncomeSource,
   showIncomeDropdown,
   setShowIncomeDropdown,
-  transactions,
-  envelopes = [], // Added envelopes with a safe default fallback
+  envelopes = [],
   formatAmount,
 }) => {
   return (
@@ -91,16 +90,11 @@ const Currency = ({
                       </div>
                     ) : (
                       envelopes.map((env) => {
-                        const consumed = transactions
-                          .filter(
-                            (t) =>
-                              t.envelopeId?._id === env._id ||
-                              t.envelopeId === env._id ||
-                              t.envelope?._id === env._id ||
-                              t.envelope === env._id,
-                          )
-                          .reduce((acc, t) => acc + t.amount, 0);
-                        const remaining = (env.allocatedAmount || 0) - consumed;
+                        const remaining =
+                          env.currentBalance != null
+                            ? Number(env.currentBalance)
+                            : (env.allocatedAmount || 0) -
+                              Number(env.consumed || 0);
 
                         return (
                           <button

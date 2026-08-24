@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useState } from "react";
+import { fetchAllTransactions } from "../../../../../services/api";
+import { getPeriodRangeLabel } from "../../../../../utils/period";
 
 const Transactions = ({
   envelopes,
-  transactions,
   selectedEnvelopeId,
   setSelectedEnvelopeId,
   symbol,
@@ -11,24 +12,44 @@ const Transactions = ({
   handleDeleteEnvelope,
   isSubmitting,
   envelopesLoading,
+  period = "all",
 }) => {
-  // Group transactions by envelope id to avoid repeated O(n*m) filters on render
-  const transactionsByEnvelope = useMemo(() => {
-    const map = Object.create(null);
-    if (!Array.isArray(transactions) || transactions.length === 0) return map;
-    for (const t of transactions) {
-      if (t.type !== "expense") continue;
-      const sourceRef = t.envelopeId || t.txExpenseEnvelope;
-      const sourceId =
-        typeof sourceRef === "object" && sourceRef !== null
-          ? sourceRef._id
-          : sourceRef;
-      const key = String(sourceId || "");
-      if (!map[key]) map[key] = [];
-      map[key].push(t);
+  const [linkedTxs, setLinkedTxs] = useState([]);
+  const [linkedLoading, setLinkedLoading] = useState(false);
+  const [linkedError, setLinkedError] = useState("");
+  const periodLabel = getPeriodRangeLabel(period);
+
+  useEffect(() => {
+    if (!selectedEnvelopeId) {
+      setLinkedTxs([]);
+      setLinkedError("");
+      return undefined;
     }
-    return map;
-  }, [transactions]);
+
+    let cancelled = false;
+    setLinkedLoading(true);
+    setLinkedError("");
+
+    fetchAllTransactions(period, {
+      envelopeId: selectedEnvelopeId,
+    })
+      .then(({ transactions }) => {
+        if (!cancelled) setLinkedTxs(transactions);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLinkedTxs([]);
+          setLinkedError("Could not load transactions for this envelope.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLinkedLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEnvelopeId, period]);
 
   return (
     <>
@@ -51,13 +72,11 @@ const Transactions = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {envelopes.map((env) => {
-              const envelopeExpenses =
-                transactionsByEnvelope[String(env._id)] || [];
-
-              const consumed = envelopeExpenses.reduce(
-                (acc, t) => acc + Number(t.amount || 0),
-                0,
-              );
+              const consumed = Number(env.consumed || 0);
+              const remaining =
+                env.currentBalance != null
+                  ? Number(env.currentBalance)
+                  : (env.allocatedAmount || 0) - consumed;
               const isOpen = selectedEnvelopeId === env._id;
 
               return (
@@ -77,8 +96,8 @@ const Transactions = ({
                         {env.name}
                       </p>
                       <p className="text-[11px] sm:text-xs text-slate-400 truncate">
-                        Allocated: {symbol}
-                        {formatAmount(env.allocatedAmount)}
+                        Consumed: {symbol}
+                        {formatAmount(env.consumed)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -122,20 +141,26 @@ const Transactions = ({
                       <p className="truncate">
                         <strong className="text-slate-400">Remaining:</strong>{" "}
                         {symbol}
-                        {formatAmount((env.allocatedAmount || 0) - consumed)}
+                        {formatAmount(remaining)}
                       </p>
 
                       <div className="pt-2 min-w-0">
                         <p className="font-semibold text-slate-400 mb-2 truncate">
-                          Expenses in this envelope:
+                          Transactions in this envelope ({periodLabel}):
                         </p>
-                        {envelopeExpenses.length === 0 ? (
+                        {linkedLoading ? (
                           <p className="text-xs text-slate-500">
-                            No expenses linked yet.
+                            Loading expenses...
+                          </p>
+                        ) : linkedError ? (
+                          <p className="text-xs text-rose-400">{linkedError}</p>
+                        ) : linkedTxs.length === 0 ? (
+                          <p className="text-xs text-slate-500">
+                            No transactions linked yet for {periodLabel}.
                           </p>
                         ) : (
                           <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                            {envelopeExpenses.map((t) => (
+                            {linkedTxs.map((t) => (
                               <div
                                 key={t._id}
                                 className="flex justify-between items-center gap-2 min-w-0"
@@ -150,8 +175,15 @@ const Transactions = ({
                                       : "-"}
                                   </p>
                                 </div>
-                                <div className="text-xs font-semibold text-rose-400 shrink-0">
-                                  -{symbol}
+                                <div
+                                  className={`text-xs font-semibold shrink-0 ${
+                                    t.type === "income"
+                                      ? "text-emerald-400"
+                                      : "text-rose-400"
+                                  }`}
+                                >
+                                  {t.type === "income" ? "+" : "-"}
+                                  {symbol}
                                   {formatAmount(t.amount)}
                                 </div>
                               </div>

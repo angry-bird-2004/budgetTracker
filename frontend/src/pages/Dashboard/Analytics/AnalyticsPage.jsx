@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { fetchTransactions, fetchIncomeEnvelopes } from "../../../services/api";
+import { fetchAllTransactions, fetchIncomeEnvelopes } from "../../../services/api";
+import { usePeriod } from "../../../context/PeriodContext";
 
 const AnalyticsPage = () => {
+  const { period, periodLabel } = usePeriod();
   const [analyticsState] = useState(() => {
     try {
       const raw = localStorage.getItem("budgetTrackerAnalyticsData");
@@ -37,11 +39,9 @@ const AnalyticsPage = () => {
   // analyticsState may be either a full payload (transactions/incomeEnvelopes)
   // or the compact summary produced by Dashboard. Normalize below.
   const {
-    transactions = [],
     incomeEnvelopes = [],
     currency = 'USD',
     conversionRate = 280,
-    // compact fields
     transactionCount = 0,
     totalIncome: compactTotalIncome,
     totalExpense: compactTotalExpense,
@@ -49,13 +49,14 @@ const AnalyticsPage = () => {
     incomeEnvelopeCount = 0,
   } = analyticsState;
 
-  // Local fetched replacements when analyticsState provides only compact summary
   const [fetchedTransactions, setFetchedTransactions] = useState([]);
   const [fetchedIncomeEnvelopes, setFetchedIncomeEnvelopes] = useState([]);
+  const [fetchedTotals, setFetchedTotals] = useState(null);
 
-  // Effective arrays prefer full arrays from analyticsState, fall back to fetched ones
-  const effectiveTransactions = Array.isArray(transactions) && transactions.length > 0 ? transactions : fetchedTransactions;
-  const effectiveIncomeEnvelopes = Array.isArray(incomeEnvelopes) && incomeEnvelopes.length > 0 ? incomeEnvelopes : fetchedIncomeEnvelopes;
+  const effectiveTransactions = fetchedTransactions;
+  const effectiveIncomeEnvelopes = fetchedIncomeEnvelopes.length > 0
+    ? fetchedIncomeEnvelopes
+    : (Array.isArray(incomeEnvelopes) ? incomeEnvelopes : []);
 
   const symbol = currency === "PKR" ? "Rs " : "$";
 
@@ -100,25 +101,28 @@ const AnalyticsPage = () => {
 
   // If compact summary provided totals, use them; otherwise compute from transactions
   const computedTotalIncome = useMemo(() => {
-    if (typeof compactTotalIncome === 'number') return compactTotalIncome;
-    return (effectiveTransactions || []).filter((tx) => tx.type === 'income').reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-  }, [effectiveTransactions, compactTotalIncome]);
+    if (typeof fetchedTotals?.income === "number") return fetchedTotals.income;
+    if (typeof compactTotalIncome === "number") return compactTotalIncome;
+    return (effectiveTransactions || []).filter((tx) => tx.type === "income").reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }, [effectiveTransactions, compactTotalIncome, fetchedTotals]);
 
   const computedTotalExpense = useMemo(() => {
-    if (typeof compactTotalExpense === 'number') return compactTotalExpense;
-    return (effectiveTransactions || []).filter((tx) => tx.type === 'expense').reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-  }, [effectiveTransactions, compactTotalExpense]);
+    if (typeof fetchedTotals?.expense === "number") return fetchedTotals.expense;
+    if (typeof compactTotalExpense === "number") return compactTotalExpense;
+    return (effectiveTransactions || []).filter((tx) => tx.type === "expense").reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }, [effectiveTransactions, compactTotalExpense, fetchedTotals]);
 
   const computedTotalTax = useMemo(() => {
-    if (typeof compactTotalTax === 'number') return compactTotalTax;
-    return (effectiveTransactions || []).filter((tx) => tx.type === 'expense').reduce((sum, tx) => {
+    if (typeof fetchedTotals?.tax === "number") return fetchedTotals.tax;
+    if (typeof compactTotalTax === "number") return compactTotalTax;
+    return (effectiveTransactions || []).filter((tx) => tx.type === "expense").reduce((sum, tx) => {
       if (tx.taxAmount) return sum + Number(tx.taxAmount || 0);
       if (tx.taxPercentage && tx.amount) {
         return sum + (Number(tx.amount || 0) * Number(tx.taxPercentage || 0)) / 100;
       }
       return sum;
     }, 0);
-  }, [effectiveTransactions, compactTotalTax]);
+  }, [effectiveTransactions, compactTotalTax, fetchedTotals]);
 
   const totalAllocatedIncome = useMemo(() => (effectiveIncomeEnvelopes || []).reduce((sum, env) => sum + Number(env.allocatedAmount || 0), 0), [effectiveIncomeEnvelopes]);
 
@@ -133,36 +137,30 @@ const AnalyticsPage = () => {
 
   const hasData = (Array.isArray(effectiveTransactions) && effectiveTransactions.length > 0) || (Array.isArray(effectiveIncomeEnvelopes) && effectiveIncomeEnvelopes.length > 0) || (transactionCount && transactionCount > 0) || (incomeEnvelopeCount && incomeEnvelopeCount > 0);
 
-  // Fetch recent transactions and income envelopes when analytics summary exists but arrays are absent
   useEffect(() => {
     let cancelled = false;
-    const shouldFetchTxs = (!Array.isArray(transactions) || transactions.length === 0) && transactionCount > 0;
-    const shouldFetchIncome = (!Array.isArray(incomeEnvelopes) || incomeEnvelopes.length === 0) && incomeEnvelopeCount > 0;
-
-    if (!shouldFetchTxs && !shouldFetchIncome) return undefined;
 
     (async () => {
       try {
-        if (shouldFetchTxs) {
-          // fetch a larger page to cover several months
-          const res = await fetchTransactions('all', 1, 500);
-          if (!cancelled && res && res.data && Array.isArray(res.data.transactions)) {
-            setFetchedTransactions(res.data.transactions);
-          }
-        }
-
-        if (shouldFetchIncome) {
-          const res2 = await fetchIncomeEnvelopes();
-          if (!cancelled && res2 && res2.data) setFetchedIncomeEnvelopes(res2.data);
+        const [txResult, incomeRes] = await Promise.all([
+          fetchAllTransactions(period),
+          fetchIncomeEnvelopes(),
+        ]);
+        if (cancelled) return;
+        setFetchedTransactions(txResult.transactions);
+        setFetchedTotals(txResult.totals);
+        if (Array.isArray(incomeRes.data)) {
+          setFetchedIncomeEnvelopes(incomeRes.data);
         }
       } catch (e) {
-        // ignore fetch errors; page will still show summary
-        console.warn('Analytics fetch fallback failed:', e);
+        console.warn("Analytics fetch failed:", e);
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [transactions, incomeEnvelopes, transactionCount, incomeEnvelopeCount]);
+    return () => {
+      cancelled = true;
+    };
+  }, [period]);
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
@@ -177,7 +175,7 @@ const AnalyticsPage = () => {
           <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">Overview</p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">Financial Analytics</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Your recent income, spending, and savings pattern across the last six months.
+            Your income, spending, and savings for {periodLabel}.
           </p>
         </div>
 
@@ -289,10 +287,10 @@ const AnalyticsPage = () => {
                 <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">Allocations</p>
                 <h3 className="mt-2 text-lg font-semibold text-white">Income envelope totals</h3>
                 <div className="mt-4 space-y-3">
-                  {incomeEnvelopes.length === 0 ? (
+                  {effectiveIncomeEnvelopes.length === 0 ? (
                     <p className="text-sm text-slate-500">No income envelopes yet. Add one to start tracking sources.</p>
                   ) : (
-                    incomeEnvelopes.map((env) => (
+                    effectiveIncomeEnvelopes.map((env) => (
                       <div key={env._id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-sm font-medium text-slate-200">{env.name}</span>
