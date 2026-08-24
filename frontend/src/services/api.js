@@ -80,9 +80,32 @@ export const fetchTransactions = (period, page = 1, limit = 50, extras = {}) => 
   if (search) params.set('search', search);
   if (extras.type && extras.type !== 'all') params.set('type', extras.type);
   if (extras.sort) params.set('sort', extras.sort);
+  if (extras.envelopeId) params.set('envelopeId', extras.envelopeId);
+  if (extras.incomeSource) params.set('incomeSource', extras.incomeSource);
   params.set('tzOffset', String(new Date().getTimezoneOffset()));
   return API.get(`/transactions?${params.toString()}`);
 };
+
+export const fetchAllTransactions = async (period, extras = {}, pageLimit = 100) => {
+  const transactions = [];
+  let page = 1;
+  let pages = 1;
+  let total = 0;
+  let totals = { income: 0, expense: 0, tax: 0 };
+
+  do {
+    const res = await fetchTransactions(period, page, pageLimit, extras);
+    const batch = Array.isArray(res.data?.transactions) ? res.data.transactions : [];
+    transactions.push(...batch);
+    pages = Number(res.data?.pages) || 1;
+    total = Number(res.data?.total) || 0;
+    if (res.data?.totals) totals = res.data.totals;
+    page += 1;
+  } while (page <= pages && page <= 50);
+
+  return { transactions, total, totals };
+};
+
 export const addTransaction = (data) => API.post('/transactions', data);
 export const removeTransaction = (id) => API.delete(`/transactions/${id}`);
 

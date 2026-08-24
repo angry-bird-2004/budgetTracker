@@ -1,19 +1,32 @@
+const parseYear = (year, fallback) => {
+  const parsed = parseInt(year, 10);
+  return Number.isInteger(parsed) && parsed >= 1970 && parsed <= 9999
+    ? parsed
+    : fallback;
+};
+
+const parseMonthIndex = (month, fallback) => {
+  const parsed = parseInt(month, 10);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 12
+    ? parsed - 1
+    : fallback;
+};
+
 const getPeriodRange = ({ period, year, month, tzOffset } = {}) => {
   const offsetMinutes = Number(tzOffset);
   const hasOffset = Number.isFinite(offsetMinutes);
   const offsetMs = hasOffset ? offsetMinutes * 60 * 1000 : 0;
   const localNow = hasOffset ? new Date(Date.now() - offsetMs) : new Date();
 
-  const y = year
-    ? parseInt(year, 10)
-    : hasOffset
-      ? localNow.getUTCFullYear()
-      : localNow.getFullYear();
-  const m = month
-    ? parseInt(month, 10) - 1
-    : hasOffset
-      ? localNow.getUTCMonth()
-      : localNow.getMonth();
+  const fallbackYear = hasOffset
+    ? localNow.getUTCFullYear()
+    : localNow.getFullYear();
+  const fallbackMonth = hasOffset
+    ? localNow.getUTCMonth()
+    : localNow.getMonth();
+
+  const y = parseYear(year, fallbackYear);
+  const m = parseMonthIndex(month, fallbackMonth);
   const d = hasOffset ? localNow.getUTCDate() : localNow.getDate();
   const day = hasOffset ? localNow.getUTCDay() : localNow.getDay();
 

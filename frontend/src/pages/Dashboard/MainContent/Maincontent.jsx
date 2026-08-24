@@ -57,6 +57,7 @@ const Maincontent = ({
   setTaxAmount,
   handleDeleteTransaction,
   handleImportTransactions,
+  handleExportTransactions,
   loadTransactions,
   txPage,
   txPages,
@@ -244,7 +245,6 @@ const Maincontent = ({
 
         <Transactions
           envelopes={envelopes}
-          transactions={transactions}
           selectedEnvelopeId={selectedEnvelopeId}
           setSelectedEnvelopeId={setSelectedEnvelopeId}
           symbol={symbol}
@@ -257,7 +257,6 @@ const Maincontent = ({
 
         <Incomes
           incomeEnvelopes={incomeEnvelopes}
-          transactions={transactions}
           selectedIncomeEnvId={selectedIncomeEnvId}
           setSelectedIncomeEnvId={setSelectedIncomeEnvId}
           symbol={symbol}
@@ -279,6 +278,7 @@ const Maincontent = ({
           handleStartEditTransaction={handleStartEditTransaction}
           handleDeleteTransaction={handleDeleteTransaction}
           handleImportTransactions={handleImportTransactions}
+          handleExportTransactions={handleExportTransactions}
           isSubmitting={isSubmitting}
           transactionSearch={transactionSearch}
           setTransactionSearch={setTransactionSearch}

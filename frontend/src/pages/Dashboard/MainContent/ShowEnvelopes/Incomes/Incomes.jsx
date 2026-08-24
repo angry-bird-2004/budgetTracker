@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { fetchAllTransactions } from "../../../../../services/api";
 
 const Incomes = ({
   incomeEnvelopes,
-  transactions,
   selectedIncomeEnvId,
   setSelectedIncomeEnvId,
   symbol,
@@ -12,6 +12,43 @@ const Incomes = ({
   isSubmitting,
   incomeEnvelopesLoading,
 }) => {
+  const [linkedTxs, setLinkedTxs] = useState([]);
+  const [linkedLoading, setLinkedLoading] = useState(false);
+  const [linkedError, setLinkedError] = useState("");
+
+  useEffect(() => {
+    if (!selectedIncomeEnvId) {
+      setLinkedTxs([]);
+      setLinkedError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLinkedLoading(true);
+    setLinkedError("");
+
+    fetchAllTransactions("all", {
+      type: "income",
+      incomeSource: selectedIncomeEnvId,
+    })
+      .then(({ transactions }) => {
+        if (!cancelled) setLinkedTxs(transactions);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLinkedTxs([]);
+          setLinkedError("Could not load income for this envelope.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLinkedLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedIncomeEnvId]);
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
       <h2 className="text-sm font-semibold tracking-wide text-slate-200 mb-4 truncate">
@@ -32,36 +69,11 @@ const Incomes = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {incomeEnvelopes.map((inc) => {
-            const envelopeIncomes = transactions.filter((t) => {
-              if (t.type !== "income") return false;
-              const sourceRef =
-                t.incomeSource || t.txIncomeEnvelope || t.envelopeId;
-              const sourceId =
-                typeof sourceRef === "object" && sourceRef !== null
-                  ? sourceRef._id
-                  : sourceRef;
-              return String(sourceId) === String(inc._id);
-            });
-
-            const spentFromInc =
-              inc.consumed != null
-                ? Number(inc.consumed)
-                : transactions
-                    .filter((t) => {
-                      if (t.type !== "expense") return false;
-                      const sourceRef = t.incomeSource || t.txIncomeEnvelope;
-                      const sourceId =
-                        typeof sourceRef === "object" && sourceRef !== null
-                          ? sourceRef._id
-                          : sourceRef;
-                      return String(sourceId) === String(inc._id);
-                    })
-                    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
+            const spentFromInc = Number(inc.consumed || 0);
             const remainingInc =
               inc.currentBalance != null
                 ? Number(inc.currentBalance)
-                : inc.allocatedAmount - spentFromInc;
+                : Number(inc.allocatedAmount || 0) - spentFromInc;
             const isOpen = selectedIncomeEnvId === inc._id;
 
             return (
@@ -137,13 +149,19 @@ const Incomes = ({
                       <p className="font-semibold text-slate-400 mb-2 truncate">
                         Incomes in this envelope:
                       </p>
-                      {envelopeIncomes.length === 0 ? (
+                      {linkedLoading ? (
+                        <p className="text-xs text-slate-500">
+                          Loading income transactions...
+                        </p>
+                      ) : linkedError ? (
+                        <p className="text-xs text-rose-400">{linkedError}</p>
+                      ) : linkedTxs.length === 0 ? (
                         <p className="text-xs text-slate-500">
                           No income transactions linked yet.
                         </p>
                       ) : (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                          {envelopeIncomes.map((t) => (
+                          {linkedTxs.map((t) => (
                             <div
                               key={t._id}
                               className="flex justify-between items-center gap-2 min-w-0"

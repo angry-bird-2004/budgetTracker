@@ -5,6 +5,7 @@ import {
   updateEnvelope,
   removeEnvelope,
   fetchTransactions,
+  fetchAllTransactions,
   addTransaction,
   removeTransaction,
   updateTransaction,
@@ -198,21 +199,15 @@ const Dashboard = () => {
 
     analyticsTimer.current = setTimeout(() => {
       try {
-        const txs = Array.isArray(transactions) ? transactions : [];
         const incEnvs = Array.isArray(incomeEnvelopes) ? incomeEnvelopes : [];
 
-        const totalIncome = txTotals.income;
-        const totalExpense = txTotals.expense;
-        const totalTax = txTotals.tax;
-
         const summary = {
-          transactions: txs, // Required for graph rendering
-          incomeEnvelopes: incEnvs, // Required for analytics breakdown
+          incomeEnvelopes: incEnvs,
           transactionCount: txTotal,
           incomeEnvelopeCount: incEnvs.length,
-          totalIncome,
-          totalExpense,
-          totalTax,
+          totalIncome: txTotals.income,
+          totalExpense: txTotals.expense,
+          totalTax: txTotals.tax,
           currency,
           conversionRate,
           updatedAt: Date.now(),
@@ -235,7 +230,7 @@ const Dashboard = () => {
       const t = analyticsTimer.current;
       if (t) clearTimeout(t);
     };
-  }, [transactions, incomeEnvelopes, currency, conversionRate, txTotals, txTotal]);
+  }, [incomeEnvelopes, currency, conversionRate, txTotals, txTotal]);
 
   const handleCreateEnvelope = async (e) => {
     e.preventDefault();
@@ -270,7 +265,7 @@ const Dashboard = () => {
 
       setEnvName("");
       setEnvAmount("");
-      loadData();
+      await loadData();
     } finally {
       setIsSubmitting(false);
     }
@@ -307,7 +302,7 @@ const Dashboard = () => {
         setEnvName("");
         setEnvAmount("");
       }
-      loadData();
+      await loadData();
     } finally {
       setIsSubmitting(false);
     }
@@ -353,7 +348,7 @@ const Dashboard = () => {
 
       setIncomeEnvName("");
       setIncomeEnvAmount("");
-      loadData();
+      await loadData();
     } finally {
       setIsSubmitting(false);
     }
@@ -390,7 +385,7 @@ const Dashboard = () => {
         setIncomeEnvName("");
         setIncomeEnvAmount("");
       }
-      loadData();
+      await loadData();
     } finally {
       setIsSubmitting(false);
     }
@@ -551,26 +546,14 @@ const Dashboard = () => {
       };
 
       if (editingTxId) {
-        const res = await updateTransaction(editingTxId, transactionData);
-        setTransactions((prev) =>
-          (prev || []).map((tx) => (tx._id === editingTxId ? res.data : tx)),
-        );
+        await updateTransaction(editingTxId, transactionData);
         setEditingTxId(null);
       } else {
-        const response = await addTransaction(transactionData);
-        if (txPage === 1) {
-          setTransactions((prev) => {
-            const base = prev || [];
-            const next = [response.data, ...base];
-            if (next.length > txLimit) next.pop();
-            return next;
-          });
-        }
-        setTxTotal((t) => t + 1);
+        await addTransaction(transactionData);
       }
 
       handleCancelEditTransaction();
-      loadData();
+      await loadData();
     } catch (error) {
       console.error("Error saving transaction:", error);
       alert("Failed to save transaction.");
@@ -637,6 +620,15 @@ const Dashboard = () => {
     }
   };
 
+  const handleExportTransactions = async () => {
+    const { transactions: rows } = await fetchAllTransactions(period, {
+      search: debouncedSearch,
+      type: transactionTypeFilter,
+      sort: transactionSort,
+    });
+    return rows;
+  };
+
   const totalIncome = txTotals.income;
   const totalExpense = txTotals.expense;
   const totalTax = txTotals.tax;
@@ -669,7 +661,6 @@ const Dashboard = () => {
             setIncomeSource={setIncomeSource}
             showIncomeDropdown={showIncomeDropdown}
             setShowIncomeDropdown={setShowIncomeDropdown}
-            transactions={transactions}
             envelopes={incomeEnvelopes}
             formatAmount={formatAmount}
           />
@@ -684,7 +675,7 @@ const Dashboard = () => {
           currency={currency}
           formatAmount={formatAmount}
           incomeEnvelopes={incomeEnvelopes}
-          transactions={transactions}
+          period={period}
         />
 
         <Suspense fallback={<div />}>
@@ -740,6 +731,7 @@ const Dashboard = () => {
             setTaxApplication={setTaxApplication}
             handleDeleteTransaction={handleDeleteTransaction}
             handleImportTransactions={handleImportTransactions}
+            handleExportTransactions={handleExportTransactions}
             currency={currency}
             conversionRate={conversionRate}
             formatAmount={formatAmount}

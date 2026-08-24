@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
+const PERIOD_LABELS = {
+  all: "all time",
+  weekly: "this week",
+  monthly: "this month",
+  yearly: "this year",
+  "financial-year": "this financial year",
+};
+
 const Header = ({
   totalIncome,
   totalExpense = 0,
@@ -8,10 +16,11 @@ const Header = ({
   currency = "USD",
   formatAmount,
   incomeEnvelopes = [],
-  transactions = [],
+  period = "all",
 }) => {
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
   const symbol = currency === "PKR" ? "Rs " : "$";
+  const periodLabel = PERIOD_LABELS[period] || "all time";
 
   const isAll = selectedEnvelopeId === "all";
 
@@ -34,22 +43,8 @@ const Header = ({
 
   const displayTax = isAll
     ? Number(totalTax || 0)
-    : transactions
-        .filter(
-          (t) =>
-            t.type === "expense" &&
-            (t.incomeSource?._id === selectedEnvelopeId ||
-              t.incomeSource === selectedEnvelopeId)
-        )
-        .reduce((acc, t) => {
-          let taxVal = 0;
-          if (t.taxAmount) taxVal = Number(t.taxAmount);
-          else if (t.taxPercentage && t.amount)
-            taxVal = (t.amount * Number(t.taxPercentage)) / 100;
-          return acc + taxVal;
-        }, 0);
+    : Number(selectedEnv?.tax || 0);
 
-  // 4. Calculate Net Savings (Total Income Pool minus Expenses consumed from it)
   const displaySavings = displayIncome - displayExpense;
 
   return (
@@ -104,11 +99,11 @@ const Header = ({
             {symbol}
             {formatAmount(displayIncome)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Allocated in: {selectedEnv?.name}
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Posted income (${periodLabel})`
+              : `Allocated in: ${selectedEnv?.name} (all-time)`}
+          </p>
         </div>
 
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
@@ -119,11 +114,11 @@ const Header = ({
             {symbol}
             {formatAmount(displayExpense)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Spent from this income envelope
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Posted expenses (${periodLabel})`
+              : "Spent from this income envelope (all-time)"}
+          </p>
         </div>
 
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
@@ -134,11 +129,11 @@ const Header = ({
             {symbol}
             {formatAmount(displayTax)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Tax from linked expenses
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Tax in posted expenses (${periodLabel})`
+              : "Tax from linked expenses (all-time)"}
+          </p>
         </div>
 
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
@@ -153,11 +148,11 @@ const Header = ({
             {symbol}
             {formatAmount(displaySavings)}
           </h3>
-          {!isAll && (
-            <p className="text-[10px] text-slate-500 mt-1 truncate">
-              Pool minus envelope expenses
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-1 truncate">
+            {isAll
+              ? `Income minus expenses (${periodLabel})`
+              : "Pool minus envelope expenses (all-time)"}
+          </p>
         </div>
       </div>
 

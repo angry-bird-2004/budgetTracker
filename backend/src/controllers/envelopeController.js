@@ -18,20 +18,24 @@ const getConsumed = async (userId, type, envelopeId) => {
 
 const getEnvelopes = async (req, res) => {
   try {
-    // Aggregation to calculate total consumed per envelope
-    const stats = await Transaction.aggregate([
-      { $match: { userId: req.user._id, type: 'expense' } },
-      { $group: { _id: "$envelopeId", consumed: { $sum: "$amount" } } }
+    const [stats, envelopes] = await Promise.all([
+      Transaction.aggregate([
+        { $match: { userId: req.user._id, type: 'expense' } },
+        { $group: { _id: '$envelopeId', consumed: { $sum: '$amount' } } },
+      ]),
+      Envelope.find({ userId: req.user._id }).lean(),
     ]);
 
-    const envelopes = await Envelope.find({ userId: req.user._id }).lean();
+    const consumedByEnvelope = new Map(
+      stats.map((stat) => [String(stat._id), stat.consumed]),
+    );
 
-    const result = envelopes.map(env => {
-      const stat = stats.find(s => String(s._id) === String(env._id));
+    const result = envelopes.map((env) => {
+      const consumed = consumedByEnvelope.get(String(env._id)) || 0;
       return {
         ...env,
-        consumed: stat ? stat.consumed : 0,
-        currentBalance: env.allocatedAmount - (stat ? stat.consumed : 0)
+        consumed,
+        currentBalance: (env.allocatedAmount || 0) - consumed,
       };
     });
 
@@ -76,6 +80,9 @@ const transferFunds = async (req, res) => {
     const { type = 'expense', fromId, toId, amount } = req.body;
     const parsedAmount = Number(amount);
 
+    if (type !== 'income' && type !== 'expense') {
+      return res.status(400).json({ message: 'Transfer type must be income or expense' });
+    }
     if (!fromId || !toId) {
       return res.status(400).json({ message: 'Source and destination envelopes are required' });
     }
@@ -88,37 +95,67 @@ const transferFunds = async (req, res) => {
 
     const Model = type === 'income' ? IncomeEnvelope : Envelope;
     const [source, destination] = await Promise.all([
-      Model.findOne({ _id: fromId, userId: req.user._id }),
-      Model.findOne({ _id: toId, userId: req.user._id }),
+      Model.findOne({ _id: fromId, userId: req.user._id }).lean(),
+      Model.findOne({ _id: toId, userId: req.user._id }).lean(),
     ]);
 
     if (!source || !destination) {
       return res.status(404).json({ message: 'Envelope not found' });
     }
 
-    const consumed = await getConsumed(req.user._id, type === 'income' ? 'income' : 'expense', source._id);
+    const consumed = await getConsumed(
+      req.user._id,
+      type === 'income' ? 'income' : 'expense',
+      source._id,
+    );
     const remaining = Number(source.allocatedAmount || 0) - consumed;
     if (parsedAmount > remaining) {
       return res.status(400).json({ message: 'Transfer exceeds remaining funds in the source envelope' });
     }
 
-    const originalSourceAmount = source.allocatedAmount;
-    source.allocatedAmount = originalSourceAmount - parsedAmount;
-    destination.allocatedAmount = Number(destination.allocatedAmount || 0) + parsedAmount;
+    const minAllocated = consumed + parsedAmount;
+    const updatedSource = await Model.findOneAndUpdate(
+      {
+        _id: fromId,
+        userId: req.user._id,
+        allocatedAmount: { $gte: minAllocated },
+      },
+      { $inc: { allocatedAmount: -parsedAmount } },
+      { new: true },
+    );
 
-    await source.save();
-    try {
-      await destination.save();
-    } catch (error) {
-      source.allocatedAmount = originalSourceAmount;
-      await source.save();
-      throw error;
+    if (!updatedSource) {
+      return res.status(409).json({
+        message: 'Transfer could not be completed because the source envelope changed. Please retry.',
+      });
     }
 
-    res.status(200).json({
-      from: source,
-      to: destination,
-    });
+    try {
+      const updatedDestination = await Model.findOneAndUpdate(
+        { _id: toId, userId: req.user._id },
+        { $inc: { allocatedAmount: parsedAmount } },
+        { new: true },
+      );
+
+      if (!updatedDestination) {
+        await Model.findOneAndUpdate(
+          { _id: fromId, userId: req.user._id },
+          { $inc: { allocatedAmount: parsedAmount } },
+        );
+        return res.status(404).json({ message: 'Envelope not found' });
+      }
+
+      return res.status(200).json({
+        from: updatedSource,
+        to: updatedDestination,
+      });
+    } catch (error) {
+      await Model.findOneAndUpdate(
+        { _id: fromId, userId: req.user._id },
+        { $inc: { allocatedAmount: parsedAmount } },
+      );
+      throw error;
+    }
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

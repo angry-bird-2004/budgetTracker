@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { toLocalDateInput, fromLocalDateInput } from "../../../../utils/dates";
 
 const TransactionHistory = ({
@@ -12,6 +12,7 @@ const TransactionHistory = ({
   handleStartEditTransaction,
   handleDeleteTransaction,
   handleImportTransactions,
+  handleExportTransactions,
   isSubmitting,
   transactionSearch,
   setTransactionSearch,
@@ -26,6 +27,7 @@ const TransactionHistory = ({
   transactionsLoading,
 }) => {
   const fileInputRef = useRef(null);
+  const [exporting, setExporting] = useState(false);
 
   const parseCSVLine = (line) => {
     const values = [];
@@ -52,8 +54,8 @@ const TransactionHistory = ({
     return values.map((value) => value.trim());
   };
 
-  const exportTransactionsCSV = () => {
-    const rows = transactions.map((tx) => ({
+  const exportTransactionsCSV = (rows) => {
+    const exportRows = (rows || []).map((tx) => ({
       Date: tx.date ? toLocalDateInput(tx.date) : "",
       Type: tx.type,
       Title: tx.title,
@@ -82,7 +84,7 @@ const TransactionHistory = ({
     ];
     const csv = [
       headers,
-      ...rows.map((row) =>
+      ...exportRows.map((row) =>
         headers.map((key) => `"${String(row[key] ?? "").replace(/"/g, '""')}"`),
       ),
     ]
@@ -243,11 +245,29 @@ const TransactionHistory = ({
             />
             <button
               type="button"
-              disabled={isSubmitting}
-              onClick={exportTransactionsCSV}
+              disabled={isSubmitting || exporting}
+              onClick={async () => {
+                if (exporting) return;
+                setExporting(true);
+                try {
+                  const rows = handleExportTransactions
+                    ? await handleExportTransactions()
+                    : transactions;
+                  if (!rows?.length) {
+                    alert("No transactions to export.");
+                    return;
+                  }
+                  exportTransactionsCSV(rows);
+                } catch (error) {
+                  console.error("CSV export failed:", error);
+                  alert("CSV export failed.");
+                } finally {
+                  setExporting(false);
+                }
+              }}
               className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50 transition"
             >
-              Export CSV
+              {exporting ? "Exporting..." : "Export CSV"}
             </button>
           </div>
         </div>
@@ -257,7 +277,7 @@ const TransactionHistory = ({
             type="text"
             value={transactionSearch}
             onChange={(e) => setTransactionSearch(e.target.value)}
-            placeholder="Search title, purpose, or source..."
+            placeholder="Search title, purpose, or payment method..."
             className="w-full sm:flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition"
           />
           <select

@@ -1,8 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useState } from "react";
+import { fetchAllTransactions } from "../../../../../services/api";
 
 const Transactions = ({
   envelopes,
-  transactions,
   selectedEnvelopeId,
   setSelectedEnvelopeId,
   symbol,
@@ -12,23 +12,42 @@ const Transactions = ({
   isSubmitting,
   envelopesLoading,
 }) => {
-  // Group transactions by envelope id to avoid repeated O(n*m) filters on render
-  const transactionsByEnvelope = useMemo(() => {
-    const map = Object.create(null);
-    if (!Array.isArray(transactions) || transactions.length === 0) return map;
-    for (const t of transactions) {
-      if (t.type !== "expense") continue;
-      const sourceRef = t.envelopeId || t.txExpenseEnvelope;
-      const sourceId =
-        typeof sourceRef === "object" && sourceRef !== null
-          ? sourceRef._id
-          : sourceRef;
-      const key = String(sourceId || "");
-      if (!map[key]) map[key] = [];
-      map[key].push(t);
+  const [linkedTxs, setLinkedTxs] = useState([]);
+  const [linkedLoading, setLinkedLoading] = useState(false);
+  const [linkedError, setLinkedError] = useState("");
+
+  useEffect(() => {
+    if (!selectedEnvelopeId) {
+      setLinkedTxs([]);
+      setLinkedError("");
+      return undefined;
     }
-    return map;
-  }, [transactions]);
+
+    let cancelled = false;
+    setLinkedLoading(true);
+    setLinkedError("");
+
+    fetchAllTransactions("all", {
+      type: "expense",
+      envelopeId: selectedEnvelopeId,
+    })
+      .then(({ transactions }) => {
+        if (!cancelled) setLinkedTxs(transactions);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLinkedTxs([]);
+          setLinkedError("Could not load expenses for this envelope.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLinkedLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEnvelopeId]);
 
   return (
     <>
@@ -51,16 +70,7 @@ const Transactions = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {envelopes.map((env) => {
-              const envelopeExpenses =
-                transactionsByEnvelope[String(env._id)] || [];
-
-              const consumed =
-                env.consumed != null
-                  ? Number(env.consumed)
-                  : envelopeExpenses.reduce(
-                      (acc, t) => acc + Number(t.amount || 0),
-                      0,
-                    );
+              const consumed = Number(env.consumed || 0);
               const remaining =
                 env.currentBalance != null
                   ? Number(env.currentBalance)
@@ -136,13 +146,19 @@ const Transactions = ({
                         <p className="font-semibold text-slate-400 mb-2 truncate">
                           Expenses in this envelope:
                         </p>
-                        {envelopeExpenses.length === 0 ? (
+                        {linkedLoading ? (
+                          <p className="text-xs text-slate-500">
+                            Loading expenses...
+                          </p>
+                        ) : linkedError ? (
+                          <p className="text-xs text-rose-400">{linkedError}</p>
+                        ) : linkedTxs.length === 0 ? (
                           <p className="text-xs text-slate-500">
                             No expenses linked yet.
                           </p>
                         ) : (
                           <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                            {envelopeExpenses.map((t) => (
+                            {linkedTxs.map((t) => (
                               <div
                                 key={t._id}
                                 className="flex justify-between items-center gap-2 min-w-0"

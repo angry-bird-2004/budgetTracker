@@ -1,5 +1,12 @@
+const mongoose = require("mongoose");
 const Transaction = require("../models/Transaction");
 const { getPeriodRange } = require("../utils/periodRange");
+const { taxAmountExpr } = require("../utils/taxAmountExpr");
+
+const toObjectId = (value) => {
+  if (typeof value !== "string" || !/^[a-fA-F0-9]{24}$/.test(value)) return null;
+  return new mongoose.Types.ObjectId(value);
+};
 
 const escapeRegex = (value) =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -19,7 +26,10 @@ const parseIncomingDate = (value) => {
 
 const getTransactions = async (req, res) => {
   try {
-    const { period, year, month, page = 1, limit = 50, search, type, sort, tzOffset } = req.query;
+    const {
+      period, year, month, page = 1, limit = 50, search, type, sort, tzOffset,
+      envelopeId, incomeSource,
+    } = req.query;
     let query = { userId: req.user._id };
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
     const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
@@ -32,6 +42,12 @@ const getTransactions = async (req, res) => {
     if (type === "income" || type === "expense") {
       query.type = type;
     }
+
+    const envelopeObjectId = toObjectId(envelopeId);
+    if (envelopeObjectId) query.envelopeId = envelopeObjectId;
+
+    const incomeSourceObjectId = toObjectId(incomeSource);
+    if (incomeSourceObjectId) query.incomeSource = incomeSourceObjectId;
 
     const searchText = typeof search === "string" ? search.trim() : "";
     if (searchText) {
@@ -63,25 +79,7 @@ const getTransactions = async (req, res) => {
           $group: {
             _id: "$type",
             totalAmount: { $sum: "$amount" },
-            totalTax: {
-              $sum: {
-                $cond: [
-                  { $gt: [{ $ifNull: ["$taxAmount", 0] }, 0] },
-                  { $ifNull: ["$taxAmount", 0] },
-                  {
-                    $divide: [
-                      {
-                        $multiply: [
-                          { $ifNull: ["$amount", 0] },
-                          { $ifNull: ["$taxPercentage", 0] },
-                        ],
-                      },
-                      100,
-                    ],
-                  },
-                ],
-              },
-            },
+            totalTax: { $sum: taxAmountExpr },
           },
         },
       ]),
