@@ -1,6 +1,13 @@
 import React from "react";
 
-const SubmitBtn = ({ isSubmitting, editingTxId }) => {
+const SubmitBtn = ({
+  isSubmitting,
+  editingTxId,
+  addLabel = "Add Transaction",
+  updateLabel = "Update Transaction",
+  addingLabel = "Adding Transaction...",
+  updatingLabel = "Updating Transaction...",
+}) => {
   return (
     <button
       type="submit"
@@ -9,11 +16,11 @@ const SubmitBtn = ({ isSubmitting, editingTxId }) => {
     >
       {isSubmitting
         ? editingTxId
-          ? "Updating Transaction..."
-          : "Adding Transaction..."
+          ? updatingLabel
+          : addingLabel
         : editingTxId
-          ? "Update Transaction"
-          : "Add Transaction"}
+          ? updateLabel
+          : addLabel}
     </button>
   );
 };

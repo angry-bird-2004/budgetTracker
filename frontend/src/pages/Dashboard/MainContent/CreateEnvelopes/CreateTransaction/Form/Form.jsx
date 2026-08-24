@@ -1,6 +1,7 @@
 import React from "react";
 import Title from "./Common/Title";
 import Amount from "./Common/Amount";
+import Type from "./Common/Type";
 import ExpenseEnvelope from "./Expense/ExpenseEnvelope";
 import PaymentMethode from "./Common/PaymentMethode";
 import Purpose from "./Common/Purpose";
@@ -8,6 +9,7 @@ import DateTime from "./Common/DateTime";
 import Tax from "./Expense/Tax";
 import SubmitBtn from "./Common/SubmitBtn";
 import IncomeOption from "./Common/IncomeOption";
+
 const Form = ({
   txType,
   setTxType,
@@ -17,8 +19,6 @@ const Form = ({
   setTxAmount,
   txEnvelope,
   setTxEnvelope,
-  txIncomeEnvelope,
-  setTxIncomeEnvelope,
   paymentMethod,
   setPaymentMethod,
   incomeSource,
@@ -36,117 +36,66 @@ const Form = ({
   symbol,
   envelopes,
   incomeEnvelopes,
-  transactions,
   formatAmount,
   isSubmitting,
   editingTxId,
   handleCreateTransaction,
 }) => {
+  const isExpense = txType === "expense";
+
   return (
     <form onSubmit={handleCreateTransaction} className="space-y-4">
-      {/* togggle button  */}
-      <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
-        <button
-          type="button"
-          onClick={() => setTxType("expense")}
-          className={`py-2 sm:py-1.5 text-xs font-medium rounded transition ${
-            txType === "expense"
-              ? "bg-rose-600/20 text-rose-400 border border-rose-500/30"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          Expense
-        </button>
-        <button
-          type="button"
-          onClick={() => setTxType("income")}
-          className={`py-2 sm:py-1.5 text-xs font-medium rounded transition ${
-            txType === "income"
-              ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          Income
-        </button>
-      </div>
-      {/* title */}
+      <Type txType={txType} setTxType={setTxType} />
       <Title txTitle={txTitle} setTxTitle={setTxTitle} />
-      {/* amount  */}
       <Amount txAmount={txAmount} setTxAmount={setTxAmount} symbol={symbol} />
 
-      {/* Expense Envelope Selector */}
       <ExpenseEnvelope
-        txType={txType}
         txEnvelope={txEnvelope}
         setTxEnvelope={setTxEnvelope}
         envelopes={envelopes}
       />
 
-      {/* Income Envelope Selector (Appears when txType is 'income') */}
-      {txType === "income" && (
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">
-            Income Envelope
-          </label>
-          <select
-            required
-            value={txIncomeEnvelope || ""}
-            onChange={(e) => setTxIncomeEnvelope(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500 truncate"
-          >
-            <option value="">Select Income Envelope Target</option>
-            <IncomeOption
-              incomeEnvelopes={incomeEnvelopes}
-              transactions={transactions}
-              symbol={symbol}
-              formatAmount={formatAmount}
-            />
-          </select>
-        </div>
-      )}
-      {txType === "expense" && (
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">
-            Pay From Income Envelope
-          </label>
-          <select
-            required
-            value={incomeSource}
-            onChange={(e) => setIncomeSource(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500 truncate"
-          >
-            <option value="">Select Income Envelope Source</option>
-            <IncomeOption
-              incomeEnvelopes={incomeEnvelopes}
-              transactions={transactions}
-              symbol={symbol}
-              formatAmount={formatAmount}
-            />
-          </select>
-        </div>
-      )}
-      {/* paymentMethod */}
+      <div>
+        <label className="block text-xs font-medium text-slate-300 mb-1">
+          {isExpense
+            ? "Pay From Income Envelope"
+            : "Credit To Income Envelope"}
+        </label>
+        <select
+          required
+          value={incomeSource}
+          onChange={(e) => setIncomeSource(e.target.value)}
+          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500 truncate"
+        >
+          <option value="">Select Income Envelope Source</option>
+          <IncomeOption
+            incomeEnvelopes={incomeEnvelopes}
+            symbol={symbol}
+            formatAmount={formatAmount}
+          />
+        </select>
+      </div>
+
       <PaymentMethode
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
       />
 
-      {/* purpose/notes */}
       <Purpose purpose={purpose} setPurpose={setPurpose} />
-      {/* date */}
       <DateTime txDate={txDate} setTxDate={setTxDate} />
 
-      <Tax
-        txType={txType}
-        taxPercentage={taxPercentage}
-        setTaxPercentage={setTaxPercentage}
-        taxAmount={taxAmount}
-        setTaxAmount={setTaxAmount}
-        taxApplication={taxApplication}
-        setTaxApplication={setTaxApplication}
-        symbol={symbol}
-      />
-      {/* submit */}
+      {isExpense && (
+        <Tax
+          taxPercentage={taxPercentage}
+          setTaxPercentage={setTaxPercentage}
+          taxAmount={taxAmount}
+          setTaxAmount={setTaxAmount}
+          taxApplication={taxApplication}
+          setTaxApplication={setTaxApplication}
+          symbol={symbol}
+        />
+      )}
+
       <SubmitBtn isSubmitting={isSubmitting} editingTxId={editingTxId} />
     </form>
   );

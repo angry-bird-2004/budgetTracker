@@ -121,7 +121,7 @@ const createTransaction = async (req, res) => {
       title,
       amount,
       type,
-      envelopeId: type === "expense" ? envelopeId : undefined,
+      envelopeId: envelopeId || undefined,
       incomeSource: incomeSource || undefined,
       paymentMethod,
       purpose,
@@ -159,7 +159,10 @@ const updateTransaction = async (req, res) => {
       }
     });
 
-    transaction.envelopeId = transaction.type === "expense" ? (req.body.envelopeId || transaction.envelopeId) : undefined;
+    transaction.envelopeId =
+      req.body.envelopeId !== undefined
+        ? req.body.envelopeId || undefined
+        : transaction.envelopeId;
     transaction.incomeSource = req.body.incomeSource !== undefined ? req.body.incomeSource : transaction.incomeSource;
 
     if (req.body.updateLogs) transaction.updateLogs = req.body.updateLogs;

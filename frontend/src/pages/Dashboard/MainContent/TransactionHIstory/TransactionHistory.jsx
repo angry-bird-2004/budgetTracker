@@ -169,41 +169,28 @@ const TransactionHistory = ({
         const existingId = String(row.id || row._id || "").trim();
         if (existingId) payload._id = existingId;
 
-        if (type === "expense") {
-          const envelopeName = String(
-            row.envelope || row.Envelope || "",
-          ).trim();
-          const targetEnvelope = envelopeName
-            ? envelopes.find(
-                (env) => env.name.toLowerCase() === envelopeName.toLowerCase(),
-              )
-            : null;
-          if (targetEnvelope) payload.envelopeId = targetEnvelope._id;
+        const envelopeName = String(
+          row.envelope || row.Envelope || "",
+        ).trim();
+        const targetEnvelope = envelopeName
+          ? envelopes.find(
+              (env) => env.name.toLowerCase() === envelopeName.toLowerCase(),
+            )
+          : null;
+        if (targetEnvelope) payload.envelopeId = targetEnvelope._id;
 
-          const incomeName = String(
-            row.incomesource || row.IncomeSource || "",
-          ).trim();
-          const matchedIncome = incomeName
-            ? incomeEnvelopes.find(
-                (env) => env.name.toLowerCase() === incomeName.toLowerCase(),
-              )
-            : null;
-          if (matchedIncome) payload.incomeSource = matchedIncome._id;
-        } else if (type === "income") {
-          const incomeName = String(
-            row.incomesource ||
-              row.IncomeSource ||
-              row.envelope ||
-              row.Envelope ||
-              "",
-          ).trim();
-          const matchedIncome = incomeName
-            ? incomeEnvelopes.find(
-                (env) => env.name.toLowerCase() === incomeName.toLowerCase(),
-              )
-            : null;
-          if (matchedIncome) payload.incomeSource = matchedIncome._id;
-        }
+        const incomeName = String(
+          row.incomesource || row.IncomeSource || "",
+        ).trim();
+        const incomeLookup =
+          incomeName || (payload.envelopeId ? "" : envelopeName);
+        const matchedIncome = incomeLookup
+          ? incomeEnvelopes.find(
+              (env) =>
+                env.name.toLowerCase() === incomeLookup.toLowerCase(),
+            )
+          : null;
+        if (matchedIncome) payload.incomeSource = matchedIncome._id;
 
         importedRows.push(payload);
       }
@@ -292,8 +279,8 @@ const TransactionHistory = ({
             className="w-full sm:w-40 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"
           >
             <option value="all">All types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
+            <option value="income">Income (Credit)</option>
+            <option value="expense">Expense (Debit)</option>
           </select>
           <select
             value={transactionSort}
@@ -388,6 +375,12 @@ const TransactionHistory = ({
 
                 {isExpanded && (
                   <div className="pt-3 mt-2 border-t border-slate-800/80 text-xs text-slate-300 space-y-1.5 min-w-0">
+                    <p>
+                      <strong className="text-slate-400">Type:</strong>{" "}
+                      {tx.type === "income"
+                        ? "Income (Credit)"
+                        : "Expense (Debit)"}
+                    </p>
                     {tx.purpose && (
                       <p>
                         <strong className="text-slate-400">Purpose:</strong>{" "}

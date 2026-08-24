@@ -28,7 +28,6 @@ const Transactions = ({
     setLinkedError("");
 
     fetchAllTransactions("all", {
-      type: "expense",
       envelopeId: selectedEnvelopeId,
     })
       .then(({ transactions }) => {
@@ -37,7 +36,7 @@ const Transactions = ({
       .catch(() => {
         if (!cancelled) {
           setLinkedTxs([]);
-          setLinkedError("Could not load expenses for this envelope.");
+          setLinkedError("Could not load transactions for this envelope.");
         }
       })
       .finally(() => {
@@ -94,8 +93,8 @@ const Transactions = ({
                         {env.name}
                       </p>
                       <p className="text-[11px] sm:text-xs text-slate-400 truncate">
-                        Allocated: {symbol}
-                        {formatAmount(env.allocatedAmount)}
+                        Consumed: {symbol}
+                        {formatAmount(env.consumed)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -144,7 +143,7 @@ const Transactions = ({
 
                       <div className="pt-2 min-w-0">
                         <p className="font-semibold text-slate-400 mb-2 truncate">
-                          Expenses in this envelope:
+                          Transactions in this envelope:
                         </p>
                         {linkedLoading ? (
                           <p className="text-xs text-slate-500">
@@ -154,7 +153,7 @@ const Transactions = ({
                           <p className="text-xs text-rose-400">{linkedError}</p>
                         ) : linkedTxs.length === 0 ? (
                           <p className="text-xs text-slate-500">
-                            No expenses linked yet.
+                            No transactions linked yet.
                           </p>
                         ) : (
                           <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -173,8 +172,15 @@ const Transactions = ({
                                       : "-"}
                                   </p>
                                 </div>
-                                <div className="text-xs font-semibold text-rose-400 shrink-0">
-                                  -{symbol}
+                                <div
+                                  className={`text-xs font-semibold shrink-0 ${
+                                    t.type === "income"
+                                      ? "text-emerald-400"
+                                      : "text-rose-400"
+                                  }`}
+                                >
+                                  {t.type === "income" ? "+" : "-"}
+                                  {symbol}
                                   {formatAmount(t.amount)}
                                 </div>
                               </div>

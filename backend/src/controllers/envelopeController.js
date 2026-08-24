@@ -5,37 +5,72 @@ const Transaction = require('../models/Transaction');
 const getConsumed = async (userId, type, envelopeId) => {
   const match =
     type === 'income'
-      ? { userId, type: 'expense', incomeSource: envelopeId }
-      : { userId, type: 'expense', envelopeId };
+      ? { userId, incomeSource: envelopeId, type: { $in: ['expense', 'income'] } }
+      : { userId, envelopeId, type: { $in: ['expense', 'income'] } };
 
   const stats = await Transaction.aggregate([
     { $match: match },
-    { $group: { _id: null, consumed: { $sum: '$amount' } } },
+    {
+      $group: {
+        _id: null,
+        net: {
+          $sum: {
+            $cond: [
+              { $eq: ['$type', 'expense'] },
+              '$amount',
+              { $multiply: ['$amount', -1] },
+            ],
+          },
+        },
+      },
+    },
   ]);
 
-  return stats[0]?.consumed || 0;
+  return stats[0]?.net || 0;
 };
 
 const getEnvelopes = async (req, res) => {
   try {
     const [stats, envelopes] = await Promise.all([
       Transaction.aggregate([
-        { $match: { userId: req.user._id, type: 'expense' } },
-        { $group: { _id: '$envelopeId', consumed: { $sum: '$amount' } } },
+        {
+          $match: {
+            userId: req.user._id,
+            envelopeId: { $ne: null },
+            type: { $in: ['expense', 'income'] },
+          },
+        },
+        {
+          $group: {
+            _id: '$envelopeId',
+            consumed: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0],
+              },
+            },
+            credited: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0],
+              },
+            },
+          },
+        },
       ]),
       Envelope.find({ userId: req.user._id }).lean(),
     ]);
 
-    const consumedByEnvelope = new Map(
-      stats.map((stat) => [String(stat._id), stat.consumed]),
+    const statsByEnvelope = new Map(
+      stats.map((stat) => [String(stat._id), stat]),
     );
 
     const result = envelopes.map((env) => {
-      const consumed = consumedByEnvelope.get(String(env._id)) || 0;
+      const stat = statsByEnvelope.get(String(env._id));
+      const consumed = stat?.consumed || 0;
+      const credited = stat?.credited || 0;
       return {
         ...env,
         consumed,
-        currentBalance: (env.allocatedAmount || 0) - consumed,
+        currentBalance: (env.allocatedAmount || 0) - consumed + credited,
       };
     });
 

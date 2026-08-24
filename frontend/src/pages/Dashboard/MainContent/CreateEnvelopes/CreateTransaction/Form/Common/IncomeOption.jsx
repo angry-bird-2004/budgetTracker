@@ -15,7 +15,7 @@ const IncomeOption = ({
 
         return (
           <option key={inc._id} value={inc._id}>
-            {inc.name} (Rem: {symbol}
+            {inc.name} (Bal: {symbol}
             {formatAmount(remainingForThisEnv)})
           </option>
         );

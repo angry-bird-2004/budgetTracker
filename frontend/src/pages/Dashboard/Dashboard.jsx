@@ -90,11 +90,19 @@ const Dashboard = () => {
   const [taxAmount, setTaxAmount] = useState("");
   const [taxApplication, setTaxApplication] = useState("exclusive");
 
+  const [fillTitle, setFillTitle] = useState("");
+  const [fillAmount, setFillAmount] = useState("");
+  const [fillPaymentMethod, setFillPaymentMethod] = useState("cash");
+  const [fillPurpose, setFillPurpose] = useState("");
+  const [fillDate, setFillDate] = useState("");
+
   const [editingTxId, setEditingTxId] = useState(null);
+  const [editingTxKind, setEditingTxKind] = useState(null);
   const [showIncomeDropdown, setShowIncomeDropdown] = useState(false);
   const symbol = currency === "PKR" ? "Rs " : "$";
 
   const transactionFormRef = useRef(null);
+  const fillAccountsFormRef = useRef(null);
   const envelopeFormRef = useRef(null);
   const incomeFormRef = useRef(null);
   const analyticsTimer = useRef(null);
@@ -430,51 +438,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleStartEditTransaction = (tx) => {
-    setEditingTxId(tx._id);
-    setTxTitle(tx.title || "");
-
-    const displayedAmount = fromBaseAmount(tx.amount, currency, conversionRate);
-    setTxAmount(displayedAmount.toFixed(2));
-
-    setTxType(tx.type || "expense");
-    setTxEnvelope(tx.envelopeId?._id || tx.envelopeId || "");
-    setPaymentMethod(
-      tx.paymentMethod ? tx.paymentMethod.toLowerCase() : "cash",
-    );
-    setIncomeSource(
-      tx.type === "expense"
-        ? tx.incomeSource?._id || tx.incomeSource || ""
-        : "",
-    );
-    setTxIncomeEnvelope(
-      tx.type === "income" ? tx.incomeSource?._id || tx.incomeSource || "" : "",
-    );
-    setPurpose(tx.purpose || "");
-
-    if (tx.date) {
-      setTxDate(toLocalDateInput(tx.date));
-    } else {
-      setTxDate("");
-    }
-
-    setTaxPercentage(tx.taxPercentage ?? "");
-    const displayedTax = tx.taxAmount
-      ? fromBaseAmount(tx.taxAmount, currency, conversionRate)
-      : "";
-    setTaxAmount(displayedTax ?? "");
-    setTaxApplication(tx.taxApplication || "exclusive");
-
-    setTimeout(() => {
-      transactionFormRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 60);
-  };
-
-  const handleCancelEditTransaction = () => {
-    setEditingTxId(null);
+  const resetExpenseForm = () => {
     setTxTitle("");
     setTxAmount("");
     setPurpose("");
@@ -485,7 +449,72 @@ const Dashboard = () => {
     setTxDate("");
     setTxEnvelope("");
     setIncomeSource("");
+    setTxType("expense");
+  };
+
+  const resetFillForm = () => {
+    setFillTitle("");
+    setFillAmount("");
+    setFillPurpose("");
+    setFillPaymentMethod("cash");
+    setFillDate("");
     setTxIncomeEnvelope("");
+  };
+
+  const handleStartEditTransaction = (tx) => {
+    const envelopeId = tx.envelopeId?._id || tx.envelopeId || "";
+    const isFill = tx.type === "income" && !envelopeId;
+    const displayedAmount = fromBaseAmount(tx.amount, currency, conversionRate);
+    const localDate = tx.date ? toLocalDateInput(tx.date) : "";
+    const method = tx.paymentMethod ? tx.paymentMethod.toLowerCase() : "cash";
+    const linkedIncome = tx.incomeSource?._id || tx.incomeSource || "";
+
+    setEditingTxId(tx._id);
+    setEditingTxKind(isFill ? "fill" : "transaction");
+
+    if (isFill) {
+      resetExpenseForm();
+      setFillTitle(tx.title || "");
+      setFillAmount(displayedAmount.toFixed(2));
+      setFillPaymentMethod(method);
+      setTxIncomeEnvelope(linkedIncome);
+      setFillPurpose(tx.purpose || "");
+      setFillDate(localDate);
+    } else {
+      resetFillForm();
+      setTxType(tx.type === "income" ? "income" : "expense");
+      setTxTitle(tx.title || "");
+      setTxAmount(displayedAmount.toFixed(2));
+      setTxEnvelope(envelopeId);
+      setPaymentMethod(method);
+      setIncomeSource(linkedIncome);
+      setPurpose(tx.purpose || "");
+      setTxDate(localDate);
+      setTaxPercentage(tx.taxPercentage ?? "");
+      const displayedTax = tx.taxAmount
+        ? fromBaseAmount(tx.taxAmount, currency, conversionRate)
+        : "";
+      setTaxAmount(displayedTax ?? "");
+      setTaxApplication(tx.taxApplication || "exclusive");
+    }
+
+    setTimeout(() => {
+      const targetRef = isFill ? fillAccountsFormRef : transactionFormRef;
+      targetRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 60);
+  };
+
+  const handleCancelEditTransaction = () => {
+    if (editingTxKind === "fill") {
+      resetFillForm();
+    } else {
+      resetExpenseForm();
+    }
+    setEditingTxId(null);
+    setEditingTxKind(null);
   };
 
   const handleCreateTransaction = async (e) => {
@@ -494,69 +523,110 @@ const Dashboard = () => {
 
     setIsSubmitting(true);
     try {
+      const isExpense = txType === "expense";
       let rawInputAmount = parseFloat(txAmount);
       let rawAmount = toBaseAmount(rawInputAmount, currency, conversionRate);
 
-      let calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
-      if (taxAmount) {
-        calculatedTaxAmount = toBaseAmount(
-          calculatedTaxAmount,
-          currency,
-          conversionRate,
-        );
-      }
-
-      let calculatedTaxPercentage = taxPercentage
-        ? parseFloat(taxPercentage)
-        : 0;
+      let calculatedTaxAmount = 0;
+      let calculatedTaxPercentage = 0;
       let finalAmount = rawAmount;
 
-      if (calculatedTaxPercentage > 0 && !taxAmount) {
-        calculatedTaxAmount = (rawAmount * calculatedTaxPercentage) / 100;
-      }
+      if (isExpense) {
+        calculatedTaxAmount = taxAmount ? parseFloat(taxAmount) : 0;
+        if (taxAmount) {
+          calculatedTaxAmount = toBaseAmount(
+            calculatedTaxAmount,
+            currency,
+            conversionRate,
+          );
+        }
 
-      if (
-        txType === "expense" &&
-        (calculatedTaxAmount > 0 || calculatedTaxPercentage > 0)
-      ) {
-        if (taxApplication === "exclusive") {
-          finalAmount = rawAmount + calculatedTaxAmount;
-        } else if (taxApplication === "inclusive") {
-          finalAmount = rawAmount;
+        calculatedTaxPercentage = taxPercentage
+          ? parseFloat(taxPercentage)
+          : 0;
+
+        if (calculatedTaxPercentage > 0 && !taxAmount) {
+          calculatedTaxAmount = (rawAmount * calculatedTaxPercentage) / 100;
+        }
+
+        if (calculatedTaxAmount > 0 || calculatedTaxPercentage > 0) {
+          if (taxApplication === "exclusive") {
+            finalAmount = rawAmount + calculatedTaxAmount;
+          } else if (taxApplication === "inclusive") {
+            finalAmount = rawAmount;
+          }
         }
       }
 
       const transactionData = {
         title: txTitle,
         amount: finalAmount,
-        type: txType,
-        envelopeId: txType === "expense" && txEnvelope ? txEnvelope : undefined,
+        type: isExpense ? "expense" : "income",
+        envelopeId: txEnvelope || undefined,
         paymentMethod: paymentMethod,
-        incomeSource:
-          txType === "expense"
-            ? incomeSource || undefined
-            : txType === "income"
-              ? txIncomeEnvelope || undefined
-              : undefined,
+        incomeSource: incomeSource || undefined,
         purpose: purpose || undefined,
-        taxPercentage: calculatedTaxPercentage || undefined,
-        taxAmount: calculatedTaxAmount || undefined,
-        taxApplication: taxApplication,
+        taxPercentage: isExpense
+          ? calculatedTaxPercentage || undefined
+          : undefined,
+        taxAmount: isExpense ? calculatedTaxAmount || undefined : undefined,
+        taxApplication: isExpense ? taxApplication : undefined,
         date: txDate ? fromLocalDateInput(txDate) : new Date(),
       };
 
-      if (editingTxId) {
+      const isEditingTransaction =
+        Boolean(editingTxId) && editingTxKind === "transaction";
+      if (isEditingTransaction) {
         await updateTransaction(editingTxId, transactionData);
         setEditingTxId(null);
+        setEditingTxKind(null);
       } else {
         await addTransaction(transactionData);
       }
 
-      handleCancelEditTransaction();
+      resetExpenseForm();
       await loadData();
     } catch (error) {
       console.error("Error saving transaction:", error);
       alert("Failed to save transaction.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFillAccount = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const rawInputAmount = parseFloat(fillAmount);
+      const rawAmount = toBaseAmount(rawInputAmount, currency, conversionRate);
+
+      const transactionData = {
+        title: fillTitle,
+        amount: rawAmount,
+        type: "income",
+        paymentMethod: fillPaymentMethod,
+        incomeSource: txIncomeEnvelope || undefined,
+        purpose: fillPurpose || undefined,
+        date: fillDate ? fromLocalDateInput(fillDate) : new Date(),
+      };
+
+      const isEditingFill = Boolean(editingTxId) && editingTxKind === "fill";
+      if (isEditingFill) {
+        await updateTransaction(editingTxId, transactionData);
+        setEditingTxId(null);
+        setEditingTxKind(null);
+      } else {
+        await addTransaction(transactionData);
+      }
+
+      resetFillForm();
+      await loadData();
+    } catch (error) {
+      console.error("Error filling account:", error);
+      alert("Failed to fill account.");
     } finally {
       setIsSubmitting(false);
     }
@@ -730,12 +800,14 @@ const Dashboard = () => {
             editingEnvId={editingEnvId}
             setEditingEnvId={setEditingEnvId}
             handleCreateTransaction={handleCreateTransaction}
+            handleFillAccount={handleFillAccount}
             txTitle={txTitle}
             setTxTitle={setTxTitle}
             txAmount={txAmount}
             setTxAmount={setTxAmount}
             txType={txType}
             setTxType={setTxType}
+            editingTxKind={editingTxKind}
             txEnvelope={txEnvelope}
             setTxEnvelope={setTxEnvelope}
             paymentMethod={paymentMethod}
@@ -754,6 +826,16 @@ const Dashboard = () => {
             setTaxAmount={setTaxAmount}
             taxApplication={taxApplication}
             setTaxApplication={setTaxApplication}
+            fillTitle={fillTitle}
+            setFillTitle={setFillTitle}
+            fillAmount={fillAmount}
+            setFillAmount={setFillAmount}
+            fillPaymentMethod={fillPaymentMethod}
+            setFillPaymentMethod={setFillPaymentMethod}
+            fillPurpose={fillPurpose}
+            setFillPurpose={setFillPurpose}
+            fillDate={fillDate}
+            setFillDate={setFillDate}
             handleDeleteTransaction={handleDeleteTransaction}
             handleImportTransactions={handleImportTransactions}
             handleExportTransactions={handleExportTransactions}
@@ -764,6 +846,7 @@ const Dashboard = () => {
             handleStartEditTransaction={handleStartEditTransaction}
             handleCancelEditTransaction={handleCancelEditTransaction}
             transactionFormRef={transactionFormRef}
+            fillAccountsFormRef={fillAccountsFormRef}
             envelopeFormRef={envelopeFormRef}
             transactionSearch={transactionSearch}
             setTransactionSearch={setTransactionSearch}

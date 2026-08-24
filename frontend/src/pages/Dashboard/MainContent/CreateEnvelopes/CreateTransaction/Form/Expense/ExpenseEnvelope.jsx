@@ -1,7 +1,6 @@
 import React from "react";
 
-const ExpenseEnvelope = ({ txType, txEnvelope, setTxEnvelope, envelopes }) => {
-  if (txType !== "expense") return null;
+const ExpenseEnvelope = ({ txEnvelope, setTxEnvelope, envelopes }) => {
   return (
     <div>
       <label className="block text-xs font-medium text-slate-300 mb-1">

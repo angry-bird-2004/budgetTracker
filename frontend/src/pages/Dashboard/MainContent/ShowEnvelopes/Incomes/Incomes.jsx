@@ -93,8 +93,8 @@ const Incomes = ({
                       {inc.name}
                     </p>
                     <p className="text-[11px] sm:text-xs text-emerald-400 truncate">
-                      Total: {symbol}
-                      {formatAmount(inc.allocatedAmount)}
+                      Balance: {symbol}
+                      {formatAmount(inc.currentBalance)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -126,20 +126,20 @@ const Incomes = ({
                 {isOpen && (
                   <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-300 space-y-2 min-w-0">
                     <p className="truncate">
-                      <strong className="text-slate-400">Total Income:</strong>{" "}
+                      <strong className="text-slate-400">Allocated:</strong>{" "}
                       {symbol}
                       {formatAmount(inc.allocatedAmount)}
                     </p>
                     <p className="truncate">
                       <strong className="text-slate-400">
-                        Spent from source:
+                        Consumed:
                       </strong>{" "}
                       {symbol}
                       {formatAmount(spentFromInc)}
                     </p>
                     <p className="truncate">
                       <strong className="text-slate-400">
-                        Remaining funds:
+                        Remaining:
                       </strong>{" "}
                       {symbol}
                       {formatAmount(remainingInc)}

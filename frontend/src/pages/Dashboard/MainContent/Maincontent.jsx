@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import CreateTransaction from "./CreateEnvelopes/CreateTransaction/CreateTransaction";
+import FillAccounts from "./CreateEnvelopes/FillAccounts/FillAccounts";
 import CreateExpenseEnvelope from "./CreateEnvelopes/CreateExpenseEnvelope/CreateExpenseEnvelope";
 import CreateIncomeEnvelope from "./CreateEnvelopes/CreateIncomeEnvelope/CreateIncomeEnvelope";
 import TransferFund from "./TransferFund/TransferFund";
@@ -31,12 +32,14 @@ const Maincontent = ({
   handleUpdateEnvelope,
   editingEnvId,
   handleCreateTransaction,
+  handleFillAccount,
   txTitle,
   setTxTitle,
   txAmount,
   setTxAmount,
   txType,
   setTxType,
+  editingTxKind,
   txEnvelope,
   setTxEnvelope,
   taxApplication,
@@ -55,6 +58,16 @@ const Maincontent = ({
   setTaxPercentage,
   taxAmount,
   setTaxAmount,
+  fillTitle,
+  setFillTitle,
+  fillAmount,
+  setFillAmount,
+  fillPaymentMethod,
+  setFillPaymentMethod,
+  fillPurpose,
+  setFillPurpose,
+  fillDate,
+  setFillDate,
   handleDeleteTransaction,
   handleImportTransactions,
   handleExportTransactions,
@@ -69,6 +82,7 @@ const Maincontent = ({
   handleStartEditTransaction,
   handleCancelEditTransaction,
   transactionFormRef,
+  fillAccountsFormRef,
   envelopeFormRef,
   transactionSearch,
   setTransactionSearch,
@@ -162,7 +176,7 @@ const Maincontent = ({
       <div className="space-y-6 lg:col-span-1 w-full min-w-0">
         <CreateTransaction
           transactionFormRef={transactionFormRef}
-          editingTxId={editingTxId}
+          editingTxId={editingTxKind === "fill" ? null : editingTxId}
           handleCancelEditTransaction={handleCancelEditTransaction}
           handleCreateTransaction={handleCreateTransaction}
           txType={txType}
@@ -175,10 +189,7 @@ const Maincontent = ({
           txEnvelope={txEnvelope}
           setTxEnvelope={setTxEnvelope}
           envelopes={envelopes}
-          txIncomeEnvelope={txIncomeEnvelope}
-          setTxIncomeEnvelope={setTxIncomeEnvelope}
           incomeEnvelopes={incomeEnvelopes}
-          transactions={transactions}
           formatAmount={formatAmount}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
@@ -194,6 +205,29 @@ const Maincontent = ({
           setTaxAmount={setTaxAmount}
           taxApplication={taxApplication}
           setTaxApplication={setTaxApplication}
+          isSubmitting={isSubmitting}
+        />
+
+        <FillAccounts
+          fillAccountsFormRef={fillAccountsFormRef}
+          editingTxId={editingTxKind === "fill" ? editingTxId : null}
+          handleCancelEditTransaction={handleCancelEditTransaction}
+          handleFillAccount={handleFillAccount}
+          fillTitle={fillTitle}
+          setFillTitle={setFillTitle}
+          fillAmount={fillAmount}
+          setFillAmount={setFillAmount}
+          symbol={symbol}
+          formatAmount={formatAmount}
+          incomeEnvelopes={incomeEnvelopes}
+          txIncomeEnvelope={txIncomeEnvelope}
+          setTxIncomeEnvelope={setTxIncomeEnvelope}
+          fillPaymentMethod={fillPaymentMethod}
+          setFillPaymentMethod={setFillPaymentMethod}
+          fillPurpose={fillPurpose}
+          setFillPurpose={setFillPurpose}
+          fillDate={fillDate}
+          setFillDate={setFillDate}
           isSubmitting={isSubmitting}
         />
 
