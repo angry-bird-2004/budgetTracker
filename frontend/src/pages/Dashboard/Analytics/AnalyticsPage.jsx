@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { fetchAllTransactions, fetchIncomeEnvelopes } from "../../../services/api";
+import { usePeriod } from "../../../context/PeriodContext";
 
 const AnalyticsPage = () => {
+  const { period, periodLabel } = usePeriod();
   const [analyticsState] = useState(() => {
     try {
       const raw = localStorage.getItem("budgetTrackerAnalyticsData");
@@ -141,7 +143,7 @@ const AnalyticsPage = () => {
     (async () => {
       try {
         const [txResult, incomeRes] = await Promise.all([
-          fetchAllTransactions("all"),
+          fetchAllTransactions(period),
           fetchIncomeEnvelopes(),
         ]);
         if (cancelled) return;
@@ -158,7 +160,7 @@ const AnalyticsPage = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [period]);
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
@@ -173,7 +175,7 @@ const AnalyticsPage = () => {
           <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">Overview</p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">Financial Analytics</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Your recent income, spending, and savings pattern across the last six months.
+            Your income, spending, and savings for {periodLabel}.
           </p>
         </div>
 

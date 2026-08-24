@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchAllTransactions } from "../../../../../services/api";
+import { getPeriodRangeLabel } from "../../../../../utils/period";
 
 const Transactions = ({
   envelopes,
@@ -11,10 +12,12 @@ const Transactions = ({
   handleDeleteEnvelope,
   isSubmitting,
   envelopesLoading,
+  period = "all",
 }) => {
   const [linkedTxs, setLinkedTxs] = useState([]);
   const [linkedLoading, setLinkedLoading] = useState(false);
   const [linkedError, setLinkedError] = useState("");
+  const periodLabel = getPeriodRangeLabel(period);
 
   useEffect(() => {
     if (!selectedEnvelopeId) {
@@ -27,7 +30,7 @@ const Transactions = ({
     setLinkedLoading(true);
     setLinkedError("");
 
-    fetchAllTransactions("all", {
+    fetchAllTransactions(period, {
       envelopeId: selectedEnvelopeId,
     })
       .then(({ transactions }) => {
@@ -46,7 +49,7 @@ const Transactions = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedEnvelopeId]);
+  }, [selectedEnvelopeId, period]);
 
   return (
     <>
@@ -143,7 +146,7 @@ const Transactions = ({
 
                       <div className="pt-2 min-w-0">
                         <p className="font-semibold text-slate-400 mb-2 truncate">
-                          Transactions in this envelope:
+                          Transactions in this envelope ({periodLabel}):
                         </p>
                         {linkedLoading ? (
                           <p className="text-xs text-slate-500">
@@ -153,7 +156,7 @@ const Transactions = ({
                           <p className="text-xs text-rose-400">{linkedError}</p>
                         ) : linkedTxs.length === 0 ? (
                           <p className="text-xs text-slate-500">
-                            No transactions linked yet.
+                            No transactions linked yet for {periodLabel}.
                           </p>
                         ) : (
                           <div className="space-y-2 max-h-56 overflow-y-auto pr-1">

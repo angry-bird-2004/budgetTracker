@@ -1,13 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-
-const PERIOD_LABELS = {
-  all: "all time",
-  weekly: "this week",
-  monthly: "this month",
-  yearly: "this year",
-  "financial-year": "this financial year",
-};
+import { getPeriodRangeLabel } from "../../../utils/period";
 
 const Header = ({
   totalIncome,
@@ -20,7 +13,7 @@ const Header = ({
 }) => {
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
   const symbol = currency === "PKR" ? "Rs " : "$";
-  const periodLabel = PERIOD_LABELS[period] || "all time";
+  const periodLabel = getPeriodRangeLabel(period);
 
   const isAll = selectedEnvelopeId === "all";
 

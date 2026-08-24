@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchAllTransactions } from "../../../../../services/api";
+import { getPeriodRangeLabel } from "../../../../../utils/period";
 
 const Incomes = ({
   incomeEnvelopes,
@@ -11,10 +12,12 @@ const Incomes = ({
   handleDeleteIncomeEnvelope,
   isSubmitting,
   incomeEnvelopesLoading,
+  period = "all",
 }) => {
   const [linkedTxs, setLinkedTxs] = useState([]);
   const [linkedLoading, setLinkedLoading] = useState(false);
   const [linkedError, setLinkedError] = useState("");
+  const periodLabel = getPeriodRangeLabel(period);
 
   useEffect(() => {
     if (!selectedIncomeEnvId) {
@@ -27,8 +30,7 @@ const Incomes = ({
     setLinkedLoading(true);
     setLinkedError("");
 
-    fetchAllTransactions("all", {
-      type: "income",
+    fetchAllTransactions(period, {
       incomeSource: selectedIncomeEnvId,
     })
       .then(({ transactions }) => {
@@ -37,7 +39,7 @@ const Incomes = ({
       .catch(() => {
         if (!cancelled) {
           setLinkedTxs([]);
-          setLinkedError("Could not load income for this envelope.");
+          setLinkedError("Could not load transactions for this envelope.");
         }
       })
       .finally(() => {
@@ -47,7 +49,7 @@ const Incomes = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedIncomeEnvId]);
+  }, [selectedIncomeEnvId, period]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
@@ -147,17 +149,17 @@ const Incomes = ({
 
                     <div className="pt-2 min-w-0">
                       <p className="font-semibold text-slate-400 mb-2 truncate">
-                        Incomes in this envelope:
+                        Transactions in this envelope ({periodLabel}):
                       </p>
                       {linkedLoading ? (
                         <p className="text-xs text-slate-500">
-                          Loading income transactions...
+                          Loading transactions...
                         </p>
                       ) : linkedError ? (
                         <p className="text-xs text-rose-400">{linkedError}</p>
                       ) : linkedTxs.length === 0 ? (
                         <p className="text-xs text-slate-500">
-                          No income transactions linked yet.
+                          No transactions linked yet for {periodLabel}.
                         </p>
                       ) : (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -176,8 +178,15 @@ const Incomes = ({
                                     : "-"}
                                 </p>
                               </div>
-                              <div className="text-xs font-semibold text-emerald-400 shrink-0">
-                                +{symbol}
+                              <div
+                                className={`text-xs font-semibold shrink-0 ${
+                                  t.type === "income"
+                                    ? "text-emerald-400"
+                                    : "text-rose-400"
+                                }`}
+                              >
+                                {t.type === "income" ? "+" : "-"}
+                                {symbol}
                                 {formatAmount(t.amount)}
                               </div>
                             </div>

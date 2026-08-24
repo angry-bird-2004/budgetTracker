@@ -75,6 +75,8 @@ const Maincontent = ({
   txPage,
   txPages,
   txTotal,
+  txLimit,
+  period = "all",
   currency,
   conversionRate,
   formatAmount,
@@ -287,6 +289,7 @@ const Maincontent = ({
           handleDeleteEnvelope={handleDeleteEnvelope}
           isSubmitting={isSubmitting}
           envelopesLoading={envelopesLoading}
+          period={period}
         />
 
         <Incomes
@@ -299,6 +302,7 @@ const Maincontent = ({
           handleDeleteIncomeEnvelope={handleDeleteIncomeEnvelope}
           isSubmitting={isSubmitting}
           incomeEnvelopesLoading={incomeEnvelopesLoading}
+          period={period}
         />
 
         <TransactionHistory
@@ -324,7 +328,9 @@ const Maincontent = ({
           txPage={txPage}
           txPages={txPages}
           txTotal={txTotal}
+          txLimit={txLimit}
           transactionsLoading={transactionsLoading}
+          period={period}
         />
       </div>
     </div>

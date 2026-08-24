@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const Envelope = require('../models/Envelope');
 const IncomeEnvelope = require('../models/IncomeEnvelope');
 const Transaction = require('../models/Transaction');
+const Setting = require('../models/Setting');
 
 const run = async () => {
   try {
@@ -16,6 +17,7 @@ const run = async () => {
       Envelope.syncIndexes(),
       IncomeEnvelope.syncIndexes(),
       Transaction.syncIndexes(),
+      Setting.syncIndexes(),
     ]);
 
     console.log('Indexes ensured successfully');

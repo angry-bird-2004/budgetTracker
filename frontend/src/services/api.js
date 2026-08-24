@@ -109,4 +109,7 @@ export const fetchAllTransactions = async (period, extras = {}, pageLimit = 100)
 export const addTransaction = (data) => API.post('/transactions', data);
 export const removeTransaction = (id) => API.delete(`/transactions/${id}`);
 
+export const fetchSettings = () => API.get('/settings');
+export const updateSettings = (data) => API.put('/settings', data);
+
 export default API;

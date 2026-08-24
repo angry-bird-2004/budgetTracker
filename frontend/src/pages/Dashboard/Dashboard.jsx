@@ -14,6 +14,7 @@ import {
   updateIncomeEnvelope,
   removeIncomeEnvelope,
   transferFunds,
+  fetchSettings,
 } from "../../services/api";
 import Navbar from "../../components/Navbar";
 import Header from "./Header/Header";
@@ -24,6 +25,8 @@ const Currency = lazy(() => import("./Currency/Currency"));
 import { useExchangeRate } from "../../Hooks/useExchangeRate";
 import { toBaseAmount, fromBaseAmount } from "../../utils/amounts";
 import { toLocalDateInput, fromLocalDateInput } from "../../utils/dates";
+import { DEFAULT_TRANSACTION_PAGE_SIZE, MAX_TRANSACTION_PAGE_SIZE, MIN_TRANSACTION_PAGE_SIZE } from "./Settings/constants";
+import { usePeriod } from "../../context/PeriodContext";
 
 const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
@@ -32,9 +35,10 @@ const Dashboard = () => {
   const [txPage, setTxPage] = useState(1);
   const [txPages, setTxPages] = useState(1);
   const [txTotal, setTxTotal] = useState(0);
-  const [txLimit, setTxLimit] = useState(50);
+  const [txLimit, setTxLimit] = useState(DEFAULT_TRANSACTION_PAGE_SIZE);
+  const [settingsReady, setSettingsReady] = useState(false);
   const [txTotals, setTxTotals] = useState({ income: 0, expense: 0, tax: 0 });
-  const [period, setPeriod] = useState("all");
+  const { period, setPeriod } = usePeriod();
   const [transactionSearch, setTransactionSearch] = useState("");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
   const [transactionSort, setTransactionSort] = useState("newest");
@@ -148,6 +152,35 @@ const Dashboard = () => {
     [period, txLimit, debouncedSearch, transactionTypeFilter, transactionSort],
   );
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      try {
+        const res = await fetchSettings();
+        if (cancelled) return;
+        const size = Number(res.data?.transactionPageSize);
+        if (Number.isFinite(size) && size >= 1) {
+          setTxLimit(
+            Math.min(
+              Math.max(Math.round(size), MIN_TRANSACTION_PAGE_SIZE),
+              MAX_TRANSACTION_PAGE_SIZE,
+            ),
+          );
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!cancelled) setSettingsReady(true);
+      }
+    };
+
+    void loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const loadEnvelopes = React.useCallback(async () => {
     setEnvelopesLoading(true);
     setIncomeEnvelopesLoading(true);
@@ -187,6 +220,8 @@ const Dashboard = () => {
   }, [loadEnvelopes]);
 
   useEffect(() => {
+    if (!settingsReady) return;
+
     let isMounted = true;
 
     const fetchPage = async () => {
@@ -199,7 +234,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [loadTransactions]);
+  }, [loadTransactions, settingsReady]);
 
   useEffect(() => {
     const timer = analyticsTimer.current;
@@ -218,6 +253,7 @@ const Dashboard = () => {
           totalTax: txTotals.tax,
           currency,
           conversionRate,
+          period,
           updatedAt: Date.now(),
         };
 
@@ -238,7 +274,7 @@ const Dashboard = () => {
       const t = analyticsTimer.current;
       if (t) clearTimeout(t);
     };
-  }, [incomeEnvelopes, currency, conversionRate, txTotals, txTotal]);
+  }, [incomeEnvelopes, currency, conversionRate, txTotals, txTotal, period]);
 
   const handleCreateEnvelope = async (e) => {
     e.preventDefault();
@@ -862,6 +898,8 @@ const Dashboard = () => {
             txPage={txPage}
             txPages={txPages}
             txTotal={txTotal}
+            txLimit={txLimit}
+            period={period}
           />
         </Suspense>
       </div>

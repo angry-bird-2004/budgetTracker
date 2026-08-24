@@ -14,6 +14,18 @@ test('financial-year spans July to June in the user timezone', () => {
   }
 });
 
+test('today range is the current local calendar day', () => {
+  const originalNow = Date.now;
+  Date.now = () => Date.UTC(2026, 7, 24, 12, 0, 0, 0);
+  try {
+    const range = getPeriodRange({ period: 'today', tzOffset: -300 });
+    assert.equal(range.start.toISOString(), '2026-08-23T19:00:00.000Z');
+    assert.equal(range.end.toISOString(), '2026-08-24T18:59:59.999Z');
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test('monthly range uses the user timezone calendar month', () => {
   const originalNow = Date.now;
   Date.now = () => Date.UTC(2026, 7, 24, 12, 0, 0, 0);

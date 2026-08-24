@@ -37,6 +37,13 @@ const getPeriodRange = ({ period, year, month, tzOffset } = {}) => {
     return new Date(Date.UTC(ly, lm, ld, h, min, s, ms) + offsetMs);
   };
 
+  if (period === 'today') {
+    return {
+      start: localToUtc(y, m, d, 0, 0, 0, 0),
+      end: localToUtc(y, m, d, 23, 59, 59, 999),
+    };
+  }
+
   if (period === 'weekly') {
     return {
       start: localToUtc(y, m, d - day, 0, 0, 0, 0),

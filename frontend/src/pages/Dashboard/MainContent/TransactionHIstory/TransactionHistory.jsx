@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { toLocalDateInput, fromLocalDateInput } from "../../../../utils/dates";
+import { getPeriodRangeLabel } from "../../../../utils/period";
 
 const TransactionHistory = ({
   transactions,
@@ -24,10 +25,13 @@ const TransactionHistory = ({
   txPage = 1,
   txPages = 1,
   txTotal = 0,
+  txLimit = 50,
   transactionsLoading,
+  period = "all",
 }) => {
   const fileInputRef = useRef(null);
   const [exporting, setExporting] = useState(false);
+  const periodLabel = getPeriodRangeLabel(period);
 
   const parseCSVLine = (line) => {
     const values = [];
@@ -217,9 +221,14 @@ const TransactionHistory = ({
           <div className="text-xs text-slate-400">Loading transactions...</div>
         )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold tracking-wide text-slate-200 truncate">
-            Transaction History ({txTotal})
-          </h2>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold tracking-wide text-slate-200 truncate">
+              Transaction History ({txTotal})
+            </h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              {txLimit} per page · {periodLabel}
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <button
               type="button"
@@ -297,6 +306,9 @@ const TransactionHistory = ({
         <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/60 p-5 text-center">
           <p className="text-sm font-medium text-slate-200">
             No matching transactions found
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Showing records for {periodLabel}.
           </p>
         </div>
       ) : (
@@ -471,6 +483,7 @@ const TransactionHistory = ({
                 <span className="font-semibold text-slate-200">
                   {txPages}
                 </span>
+                <span className="text-slate-500"> · {txLimit} per page</span>
               </p>
               <div className="flex items-center gap-2">
                 <button
