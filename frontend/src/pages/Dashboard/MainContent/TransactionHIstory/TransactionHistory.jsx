@@ -56,6 +56,7 @@ const TransactionHistory = ({
 
   const exportTransactionsCSV = (rows) => {
     const exportRows = (rows || []).map((tx) => ({
+      Id: tx._id || "",
       Date: tx.date ? toLocalDateInput(tx.date) : "",
       Type: tx.type,
       Title: tx.title,
@@ -72,6 +73,7 @@ const TransactionHistory = ({
     }));
 
     const headers = [
+      "Id",
       "Date",
       "Type",
       "Title",
@@ -115,9 +117,10 @@ const TransactionHistory = ({
         return;
       }
 
-      const headers = parseCSVLine(lines[0]).map((header) =>
-        header.trim().toLowerCase(),
-      );
+      const headers = parseCSVLine(lines[0]).map((header, index) => {
+        const cleaned = index === 0 ? header.replace(/^\uFEFF/, "") : header;
+        return cleaned.trim().toLowerCase();
+      });
       const importedRows = [];
 
       for (let i = 1; i < lines.length; i += 1) {
@@ -162,6 +165,9 @@ const TransactionHistory = ({
           purpose,
           date: normalizedDate,
         };
+
+        const existingId = String(row.id || row._id || "").trim();
+        if (existingId) payload._id = existingId;
 
         if (type === "expense") {
           const envelopeName = String(

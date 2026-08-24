@@ -595,23 +595,48 @@ const Dashboard = () => {
     if (!rows.length || isSubmitting) return;
     setIsSubmitting(true);
 
+    const isMongoId = (value) =>
+      typeof value === "string" && /^[a-fA-F0-9]{24}$/.test(value);
+
+    const upsertTransaction = async (row) => {
+      const { _id, ...data } = row;
+      const existingId = typeof _id === "string" ? _id.trim() : "";
+
+      if (isMongoId(existingId)) {
+        try {
+          await updateTransaction(existingId, data);
+          return "updated";
+        } catch (error) {
+          if (error?.response?.status !== 404) throw error;
+        }
+      }
+
+      await addTransaction(data);
+      return "created";
+    };
+
     try {
-      let importedCount = 0;
+      let createdCount = 0;
+      let updatedCount = 0;
       for (let i = 0; i < rows.length; i += 10) {
         const batch = rows.slice(i, i + 10);
         const results = await Promise.all(
           batch.map((row) =>
-            addTransaction(row)
-              .then(() => ({ ok: true }))
+            upsertTransaction(row)
+              .then((action) => ({ ok: true, action }))
               .catch(() => ({ ok: false })),
           ),
         );
-        importedCount += results.filter((r) => r.ok).length;
+        createdCount += results.filter((r) => r.action === "created").length;
+        updatedCount += results.filter((r) => r.action === "updated").length;
       }
 
+      const importedCount = createdCount + updatedCount;
       if (importedCount > 0) {
         await Promise.all([loadEnvelopes(), loadTransactions(1, false)]);
-        alert(`${importedCount} transaction(s) imported successfully.`);
+        alert(
+          `${importedCount} transaction(s) imported successfully (${createdCount} created, ${updatedCount} updated).`,
+        );
       } else {
         alert("No valid transactions were imported.");
       }
