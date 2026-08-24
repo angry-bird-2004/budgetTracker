@@ -6,12 +6,31 @@ const getIncomeEnvelopes = async (req, res) => {
   try {
     const [stats, incomeEnvelopes] = await Promise.all([
       Transaction.aggregate([
-        { $match: { userId: req.user._id, type: 'expense', incomeSource: { $ne: null } } },
+        {
+          $match: {
+            userId: req.user._id,
+            incomeSource: { $ne: null },
+            type: { $in: ['expense', 'income'] },
+          },
+        },
         {
           $group: {
             _id: '$incomeSource',
-            consumed: { $sum: '$amount' },
-            tax: { $sum: taxAmountExpr },
+            consumed: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0],
+              },
+            },
+            income: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0],
+              },
+            },
+            tax: {
+              $sum: {
+                $cond: [{ $eq: ['$type', 'expense'] }, taxAmountExpr, 0],
+              },
+            },
           },
         },
       ]),
@@ -27,11 +46,12 @@ const getIncomeEnvelopes = async (req, res) => {
     const result = incomeEnvelopes.map((env) => {
       const stat = statsBySource.get(String(env._id));
       const consumed = stat?.consumed || 0;
+      const income = stat?.income || 0;
       return {
         ...env,
         consumed,
         tax: stat?.tax || 0,
-        currentBalance: (env.allocatedAmount || 0) - consumed,
+        currentBalance: (env.allocatedAmount || 0) + income - consumed,
       };
     });
 
