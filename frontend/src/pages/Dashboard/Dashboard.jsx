@@ -12,6 +12,7 @@ import {
   addIncomeEnvelope,
   updateIncomeEnvelope,
   removeIncomeEnvelope,
+  transferFunds,
 } from "../../services/api";
 import Navbar from "../../components/Navbar";
 import Header from "./Header/Header";
@@ -21,6 +22,7 @@ const Maincontent = lazy(() => import("./MainContent/Maincontent"));
 const Currency = lazy(() => import("./Currency/Currency"));
 import { useExchangeRate } from "../../Hooks/useExchangeRate";
 import { toBaseAmount, fromBaseAmount } from "../../utils/amounts";
+import { toLocalDateInput, fromLocalDateInput } from "../../utils/dates";
 
 const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
@@ -30,6 +32,7 @@ const Dashboard = () => {
   const [txPages, setTxPages] = useState(1);
   const [txTotal, setTxTotal] = useState(0);
   const [txLimit, setTxLimit] = useState(50);
+  const [txTotals, setTxTotals] = useState({ income: 0, expense: 0, tax: 0 });
   const [period, setPeriod] = useState("all");
   const [transactionSearch, setTransactionSearch] = useState("");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
@@ -53,26 +56,17 @@ const Dashboard = () => {
     });
   };
 
-  const getLinkedId = (value) =>
-    typeof value === "object" && value !== null ? value._id : value;
+  const getEnvelopeSpent = (envId) => {
+    const env = envelopes.find((item) => String(item._id) === String(envId));
+    return Number(env?.consumed || 0);
+  };
 
-  const getEnvelopeSpent = (envId, list = transactions) =>
-    list
-      .filter((tx) => {
-        if (tx.type !== "expense") return false;
-        const linkedId = getLinkedId(tx.envelopeId);
-        return String(linkedId) === String(envId);
-      })
-      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-
-  const getIncomeSpent = (incomeId, list = transactions) =>
-    list
-      .filter((tx) => {
-        if (tx.type !== "expense") return false;
-        const linkedId = getLinkedId(tx.incomeSource);
-        return String(linkedId) === String(incomeId);
-      })
-      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const getIncomeSpent = (incomeId) => {
+    const env = incomeEnvelopes.find(
+      (item) => String(item._id) === String(incomeId),
+    );
+    return Number(env?.consumed || 0);
+  };
 
   const [envName, setEnvName] = useState("");
   const [envAmount, setEnvAmount] = useState("");
@@ -103,16 +97,33 @@ const Dashboard = () => {
   const envelopeFormRef = useRef(null);
   const incomeFormRef = useRef(null);
   const analyticsTimer = useRef(null);
+  const [debouncedSearch, setDebouncedSearch] = useState(transactionSearch);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(transactionSearch), 300);
+    return () => clearTimeout(timer);
+  }, [transactionSearch]);
 
   const loadTransactions = React.useCallback(
     async (page = 1, append = false) => {
       setTransactionsLoading(true);
       try {
-        const txRes = await fetchTransactions(period, page, txLimit);
-        const { transactions: txs, total, pages } = txRes.data;
+        const txRes = await fetchTransactions(period, page, txLimit, {
+          search: debouncedSearch,
+          type: transactionTypeFilter,
+          sort: transactionSort,
+        });
+        const { transactions: txs, total, pages, totals } = txRes.data;
         setTxPage(page);
         setTxPages(pages);
         setTxTotal(total);
+        if (totals) {
+          setTxTotals({
+            income: Number(totals.income || 0),
+            expense: Number(totals.expense || 0),
+            tax: Number(totals.tax || 0),
+          });
+        }
         if (append)
           setTransactions((prev) => [
             ...(prev || []),
@@ -125,72 +136,56 @@ const Dashboard = () => {
         setTransactionsLoading(false);
       }
     },
-    [period, txLimit],
+    [period, txLimit, debouncedSearch, transactionTypeFilter, transactionSort],
   );
 
-  const loadData = React.useCallback(async () => {
+  const loadEnvelopes = React.useCallback(async () => {
     setEnvelopesLoading(true);
     setIncomeEnvelopesLoading(true);
     try {
       const envRes = await fetchEnvelopes();
-      setEnvelopes(envRes.data);
+      setEnvelopes(Array.isArray(envRes.data) ? envRes.data : []);
 
       try {
         const incomeEnvRes = await fetchIncomeEnvelopes();
-        setIncomeEnvelopes(incomeEnvRes.data);
+        setIncomeEnvelopes(
+          Array.isArray(incomeEnvRes.data) ? incomeEnvRes.data : [],
+        );
       } catch (e) {
         console.warn(
           "Income envelopes fetch skipped or endpoint not ready:",
           e,
         );
       }
-
-      await loadTransactions(1, false);
     } catch (err) {
       console.error(err);
     } finally {
       setEnvelopesLoading(false);
       setIncomeEnvelopesLoading(false);
-      if (isInitialLoad) setIsInitialLoad(false);
     }
-  }, [loadTransactions]);
+  }, []);
+
+  const loadData = React.useCallback(async () => {
+    try {
+      await Promise.all([loadEnvelopes(), loadTransactions(1, false)]);
+    } finally {
+      setIsInitialLoad(false);
+    }
+  }, [loadEnvelopes, loadTransactions]);
+
+  useEffect(() => {
+    void loadEnvelopes();
+  }, [loadEnvelopes]);
 
   useEffect(() => {
     let isMounted = true;
 
-    const fetchData = async () => {
-      setEnvelopesLoading(true);
-      setIncomeEnvelopesLoading(true);
-      try {
-        const envRes = await fetchEnvelopes();
-        if (!isMounted) return;
-        setEnvelopes(envRes.data);
-
-        try {
-          const incomeEnvRes = await fetchIncomeEnvelopes();
-          if (!isMounted) return;
-          setIncomeEnvelopes(incomeEnvRes.data);
-        } catch (e) {
-          console.warn(
-            "Income envelopes fetch skipped or endpoint not ready:",
-            e,
-          );
-        }
-
-        await loadTransactions(1, false);
-        if (!isMounted) return;
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (isMounted) {
-          setEnvelopesLoading(false);
-          setIncomeEnvelopesLoading(false);
-          if (isInitialLoad) setIsInitialLoad(false);
-        }
-      }
+    const fetchPage = async () => {
+      await loadTransactions(1, false);
+      if (isMounted) setIsInitialLoad(false);
     };
 
-    void fetchData();
+    void fetchPage();
 
     return () => {
       isMounted = false;
@@ -206,26 +201,14 @@ const Dashboard = () => {
         const txs = Array.isArray(transactions) ? transactions : [];
         const incEnvs = Array.isArray(incomeEnvelopes) ? incomeEnvelopes : [];
 
-        const totalIncome = txs
-          .filter((t) => t.type === "income")
-          .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-        const totalExpense = txs
-          .filter((t) => t.type === "expense")
-          .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-        const totalTax = txs
-          .filter((t) => t.type === "expense")
-          .reduce((acc, t) => {
-            let taxVal = 0;
-            if (t.taxAmount) taxVal = Number(t.taxAmount);
-            else if (t.taxPercentage && t.amount)
-              taxVal = (t.amount * Number(t.taxPercentage)) / 100;
-            return acc + taxVal;
-          }, 0);
+        const totalIncome = txTotals.income;
+        const totalExpense = txTotals.expense;
+        const totalTax = txTotals.tax;
 
         const summary = {
           transactions: txs, // Required for graph rendering
           incomeEnvelopes: incEnvs, // Required for analytics breakdown
-          transactionCount: txs.length,
+          transactionCount: txTotal,
           incomeEnvelopeCount: incEnvs.length,
           totalIncome,
           totalExpense,
@@ -252,7 +235,7 @@ const Dashboard = () => {
       const t = analyticsTimer.current;
       if (t) clearTimeout(t);
     };
-  }, [transactions, incomeEnvelopes, currency, conversionRate]);
+  }, [transactions, incomeEnvelopes, currency, conversionRate, txTotals, txTotal]);
 
   const handleCreateEnvelope = async (e) => {
     e.preventDefault();
@@ -419,7 +402,9 @@ const Dashboard = () => {
     toId,
     rawTransferAmount,
   ) => {
-    if (isSubmitting) return;
+    if (isSubmitting) {
+      throw new Error("Another request is already in progress.");
+    }
     setIsSubmitting(true);
 
     try {
@@ -429,42 +414,22 @@ const Dashboard = () => {
         conversionRate,
       );
 
-      if (type === "expense") {
-        const sourceEnv = envelopes.find((e) => e._id === fromId);
-        const destEnv = envelopes.find((e) => e._id === toId);
-        if (!sourceEnv || !destEnv) return;
-
-        const newSourceAmount = Math.max(
-          0,
-          (sourceEnv.allocatedAmount || 0) - baseTransferAmount,
-        );
-        const newDestAmount =
-          (destEnv.allocatedAmount || 0) + baseTransferAmount;
-
-        await updateEnvelope(fromId, { allocatedAmount: newSourceAmount });
-        await updateEnvelope(toId, { allocatedAmount: newDestAmount });
-      } else {
-        const sourceInc = incomeEnvelopes.find((e) => e._id === fromId);
-        const destInc = incomeEnvelopes.find((e) => e._id === toId);
-        if (!sourceInc || !destInc) return;
-
-        const newSourceAmount = Math.max(
-          0,
-          (sourceInc.allocatedAmount || 0) - baseTransferAmount,
-        );
-        const newDestAmount =
-          (destInc.allocatedAmount || 0) + baseTransferAmount;
-
-        await updateIncomeEnvelope(fromId, {
-          allocatedAmount: newSourceAmount,
-        });
-        await updateIncomeEnvelope(toId, { allocatedAmount: newDestAmount });
+      if (!Number.isFinite(baseTransferAmount) || baseTransferAmount <= 0) {
+        throw new Error("Enter a valid transfer amount.");
       }
 
-      loadData();
+      await transferFunds({
+        type,
+        fromId,
+        toId,
+        amount: baseTransferAmount,
+      });
+
+      await loadData();
     } catch (error) {
       console.error("Error transferring funds between envelopes:", error);
-      alert("Failed to transfer funds.");
+      alert(error.response?.data?.message || error.message || "Failed to transfer funds.");
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
@@ -493,8 +458,7 @@ const Dashboard = () => {
     setPurpose(tx.purpose || "");
 
     if (tx.date) {
-      const formattedDate = new Date(tx.date).toISOString().split("T")[0];
-      setTxDate(formattedDate);
+      setTxDate(toLocalDateInput(tx.date));
     } else {
       setTxDate("");
     }
@@ -583,7 +547,7 @@ const Dashboard = () => {
         taxPercentage: calculatedTaxPercentage || undefined,
         taxAmount: calculatedTaxAmount || undefined,
         taxApplication: taxApplication,
-        date: txDate ? new Date(txDate) : new Date(),
+        date: txDate ? fromLocalDateInput(txDate) : new Date(),
       };
 
       if (editingTxId) {
@@ -635,7 +599,10 @@ const Dashboard = () => {
       if (editingTxId === id) {
         handleCancelEditTransaction();
       }
-      await loadTransactions(txPage, false);
+      await Promise.all([
+        loadEnvelopes(),
+        loadTransactions(txPage, false),
+      ]);
     } finally {
       setIsSubmitting(false);
     }
@@ -660,7 +627,7 @@ const Dashboard = () => {
       }
 
       if (importedCount > 0) {
-        await loadTransactions(1, false);
+        await Promise.all([loadEnvelopes(), loadTransactions(1, false)]);
         alert(`${importedCount} transaction(s) imported successfully.`);
       } else {
         alert("No valid transactions were imported.");
@@ -670,23 +637,9 @@ const Dashboard = () => {
     }
   };
 
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const totalTax = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => {
-      let taxVal = 0;
-      if (t.taxAmount) taxVal = Number(t.taxAmount);
-      else if (t.taxPercentage && t.amount)
-        taxVal = (t.amount * Number(t.taxPercentage)) / 100;
-      return acc + taxVal;
-    }, 0);
+  const totalIncome = txTotals.income;
+  const totalExpense = txTotals.expense;
+  const totalTax = txTotals.tax;
 
   const isBusy = isSubmitting || isInitialLoad;
 

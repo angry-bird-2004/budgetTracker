@@ -6,7 +6,7 @@ import TransferFund from "./TransferFund/TransferFund";
 import Transactions from "./ShowEnvelopes/Transactions/Transactions";
 import Incomes from "./ShowEnvelopes/Incomes/Incomes";
 import TransactionHistory from "./TransactionHIstory/TransactionHistory";
-import { fromBaseAmount } from "../../../utils/amounts";
+import { fromBaseAmount, toBaseAmount } from "../../../utils/amounts";
 
 const Maincontent = ({
   handleCreateEnvelope,
@@ -92,23 +92,48 @@ const Maincontent = ({
 
   const symbol = currency === "PKR" ? "Rs " : "$";
 
-  const executeTransfer = (e) => {
+  const executeTransfer = async (e) => {
     e.preventDefault();
     if (!fromEnvId || !toEnvId || !transferAmount) return;
     if (fromEnvId === toEnvId) {
       alert("Source and Destination envelopes cannot be the same.");
       return;
     }
-    handleTransferBetweenEnvelopes(
-      transferType,
-      fromEnvId,
-      toEnvId,
-      parseFloat(transferAmount),
+
+    const parsedAmount = parseFloat(transferAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      alert("Enter a valid transfer amount.");
+      return;
+    }
+
+    const list = transferType === "expense" ? envelopes : incomeEnvelopes;
+    const source = list.find((env) => env._id === fromEnvId);
+    const remaining = Math.max(
+      0,
+      source?.currentBalance != null
+        ? Number(source.currentBalance)
+        : Number(source?.allocatedAmount || 0) - Number(source?.consumed || 0),
     );
-    setShowTransferModal(false);
-    setFromEnvId("");
-    setToEnvId("");
-    setTransferAmount("");
+    const baseAmount = toBaseAmount(parsedAmount, currency, conversionRate);
+    if (baseAmount > remaining) {
+      alert("Transfer exceeds remaining funds in the source envelope.");
+      return;
+    }
+
+    try {
+      await handleTransferBetweenEnvelopes(
+        transferType,
+        fromEnvId,
+        toEnvId,
+        parsedAmount,
+      );
+      setShowTransferModal(false);
+      setFromEnvId("");
+      setToEnvId("");
+      setTransferAmount("");
+    } catch {
+      // Keep the modal open so the user can correct the amount.
+    }
   };
 
   const handleMaxTransfer = () => {
@@ -116,34 +141,12 @@ const Maincontent = ({
     const source = list.find((env) => env._id === fromEnvId);
     if (!source) return;
 
-    let baseRemaining = 0;
-    if (transferType === "expense") {
-      const consumed = transactions
-        .filter(
-          (t) =>
-            t.type === "expense" &&
-            ((t.envelopeId && t.envelopeId._id === source._id) ||
-              t.envelopeId === source._id),
-        )
-        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-      baseRemaining = Math.max(
-        0,
-        Number(source.allocatedAmount || 0) - consumed,
-      );
-    } else {
-      const consumedIncome = transactions
-        .filter(
-          (t) =>
-            t.type === "expense" &&
-            ((t.incomeSource && t.incomeSource._id === source._id) ||
-              t.incomeSource === source._id),
-        )
-        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-      baseRemaining = Math.max(
-        0,
-        Number(source.allocatedAmount || 0) - consumedIncome,
-      );
-    }
+    const baseRemaining = Math.max(
+      0,
+      source.currentBalance != null
+        ? Number(source.currentBalance)
+        : Number(source.allocatedAmount || 0) - Number(source.consumed || 0),
+    );
 
     const displayedVal = fromBaseAmount(
       baseRemaining,

@@ -1,11 +1,32 @@
 const IncomeEnvelope = require('../models/IncomeEnvelope');
+const Transaction = require('../models/Transaction');
 
 const getIncomeEnvelopes = async (req, res) => {
   try {
-    const incomeEnvelopes = await IncomeEnvelope.find({ userId: req.user._id })
-      .select('name allocatedAmount')
-      .lean();
-    res.status(200).json(incomeEnvelopes);
+    const [stats, incomeEnvelopes] = await Promise.all([
+      Transaction.aggregate([
+        { $match: { userId: req.user._id, type: 'expense', incomeSource: { $ne: null } } },
+        { $group: { _id: '$incomeSource', consumed: { $sum: '$amount' } } },
+      ]),
+      IncomeEnvelope.find({ userId: req.user._id })
+        .select('name allocatedAmount')
+        .lean(),
+    ]);
+
+    const consumedBySource = new Map(
+      stats.map((stat) => [String(stat._id), stat.consumed]),
+    );
+
+    const result = incomeEnvelopes.map((env) => {
+      const consumed = consumedBySource.get(String(env._id)) || 0;
+      return {
+        ...env,
+        consumed,
+        currentBalance: (env.allocatedAmount || 0) - consumed,
+      };
+    });
+
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

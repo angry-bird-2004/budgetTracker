@@ -43,19 +43,25 @@ const Incomes = ({
               return String(sourceId) === String(inc._id);
             });
 
-            const spentFromInc = transactions
-              .filter((t) => {
-                if (t.type !== "expense") return false;
-                const sourceRef = t.incomeSource || t.txIncomeEnvelope;
-                const sourceId =
-                  typeof sourceRef === "object" && sourceRef !== null
-                    ? sourceRef._id
-                    : sourceRef;
-                return String(sourceId) === String(inc._id);
-              })
-              .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+            const spentFromInc =
+              inc.consumed != null
+                ? Number(inc.consumed)
+                : transactions
+                    .filter((t) => {
+                      if (t.type !== "expense") return false;
+                      const sourceRef = t.incomeSource || t.txIncomeEnvelope;
+                      const sourceId =
+                        typeof sourceRef === "object" && sourceRef !== null
+                          ? sourceRef._id
+                          : sourceRef;
+                      return String(sourceId) === String(inc._id);
+                    })
+                    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-            const remainingInc = inc.allocatedAmount - spentFromInc;
+            const remainingInc =
+              inc.currentBalance != null
+                ? Number(inc.currentBalance)
+                : inc.allocatedAmount - spentFromInc;
             const isOpen = selectedIncomeEnvId === inc._id;
 
             return (

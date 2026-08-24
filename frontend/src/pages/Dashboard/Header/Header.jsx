@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 
 const Header = ({
   totalIncome,
+  totalExpense = 0,
+  totalTax = 0,
   currency = "USD",
   formatAmount,
   incomeEnvelopes = [],
@@ -13,50 +15,39 @@ const Header = ({
 
   const isAll = selectedEnvelopeId === "all";
 
-  // Find the currently selected income envelope object if any
   const selectedEnv = incomeEnvelopes.find((e) => e._id === selectedEnvelopeId);
 
-  // 1. Calculate Total Income:
-  // Sum up all income envelope allocated amounts PLUS any explicit income transactions 
-  // that might not be tied to an envelope, or ensure the base pool of all income envelopes is counted.
   const sumOfIncomeEnvelopes = incomeEnvelopes.reduce(
     (acc, env) => acc + Number(env.allocatedAmount || 0),
     0
   );
-  
-  // If totalIncome prop only tracks transactions, let's combine it with the income envelopes' base allocations
-  // to ensure the initial envelope amounts are fully accounted for.
+
   const overallIncome = Math.max(totalIncome, sumOfIncomeEnvelopes);
 
   const displayIncome = isAll
     ? overallIncome
     : Number(selectedEnv?.allocatedAmount || 0);
 
-  // 2. Calculate Filtered Expenses (transactions linked to this specific income envelope)
-  const filteredExpenseTransactions = isAll
-    ? transactions.filter((t) => t.type === "expense")
-    : transactions.filter(
-        (t) =>
-          t.type === "expense" &&
-          (t.incomeSource?._id === selectedEnvelopeId ||
-            t.incomeSource === selectedEnvelopeId)
-      );
+  const displayExpense = isAll
+    ? Number(totalExpense || 0)
+    : Number(selectedEnv?.consumed || 0);
 
-  const displayExpense = filteredExpenseTransactions.reduce(
-    (acc, t) => acc + Number(t.amount || 0),
-    0
-  );
-
-  // 3. Calculate Tax based on filtered expenses
-  const displayTax = filteredExpenseTransactions.reduce((acc, t) => {
-    let taxVal = 0;
-    if (t.taxAmount) {
-      taxVal = Number(t.taxAmount);
-    } else if (t.taxPercentage && t.amount) {
-      taxVal = (t.amount * Number(t.taxPercentage)) / 100;
-    }
-    return acc + taxVal;
-  }, 0);
+  const displayTax = isAll
+    ? Number(totalTax || 0)
+    : transactions
+        .filter(
+          (t) =>
+            t.type === "expense" &&
+            (t.incomeSource?._id === selectedEnvelopeId ||
+              t.incomeSource === selectedEnvelopeId)
+        )
+        .reduce((acc, t) => {
+          let taxVal = 0;
+          if (t.taxAmount) taxVal = Number(t.taxAmount);
+          else if (t.taxPercentage && t.amount)
+            taxVal = (t.amount * Number(t.taxPercentage)) / 100;
+          return acc + taxVal;
+        }, 0);
 
   // 4. Calculate Net Savings (Total Income Pool minus Expenses consumed from it)
   const displaySavings = displayIncome - displayExpense;

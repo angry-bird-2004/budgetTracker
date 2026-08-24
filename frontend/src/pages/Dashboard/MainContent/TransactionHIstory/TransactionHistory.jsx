@@ -1,4 +1,5 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef } from "react";
+import { toLocalDateInput, fromLocalDateInput } from "../../../../utils/dates";
 
 const TransactionHistory = ({
   transactions,
@@ -18,11 +19,13 @@ const TransactionHistory = ({
   setTransactionTypeFilter,
   transactionSort,
   setTransactionSort,
+  loadTransactions,
+  txPage = 1,
+  txPages = 1,
+  txTotal = 0,
   transactionsLoading,
 }) => {
   const fileInputRef = useRef(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
 
   const parseCSVLine = (line) => {
     const values = [];
@@ -49,50 +52,13 @@ const TransactionHistory = ({
     return values.map((value) => value.trim());
   };
 
-  const filteredTransactions = useMemo(() => {
-    return transactions
-      .filter((tx) => {
-        const matchesType =
-          transactionTypeFilter === "all" || tx.type === transactionTypeFilter;
-        const searchText = transactionSearch.trim().toLowerCase();
-        const haystack = [
-          tx.title,
-          tx.purpose,
-          tx.paymentMethod,
-          tx.type,
-          tx.envelopeId?.name,
-          tx.incomeSource?.name,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        const matchesSearch = !searchText || haystack.includes(searchText);
-        return matchesType && matchesSearch;
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.date || 0).getTime();
-        const dateB = new Date(b.date || 0).getTime();
-        return transactionSort === "oldest" ? dateA - dateB : dateB - dateA;
-      });
-  }, [transactions, transactionTypeFilter, transactionSearch, transactionSort]);
-
-  useMemo(() => {
-    setCurrentPage(1);
-  }, [transactionSearch, transactionTypeFilter, transactionSort]);
-
-  const totalPages = Math.ceil(filteredTransactions.length / pageSize) || 1;
-  const paginatedTransactions = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredTransactions.slice(start, start + pageSize);
-  }, [filteredTransactions, currentPage]);
-
   const exportTransactionsCSV = () => {
-    const rows = filteredTransactions.map((tx) => ({
-      Date: tx.date ? new Date(tx.date).toISOString().split("T")[0] : "",
+    const rows = transactions.map((tx) => ({
+      Date: tx.date ? toLocalDateInput(tx.date) : "",
       Type: tx.type,
       Title: tx.title,
-      Amount: `${symbol}${formatAmount(tx.amount)}`,
+      Amount: tx.amount,
+      Currency: "PKR",
       PaymentMethod: tx.paymentMethod || "cash",
       Envelope:
         typeof tx.envelopeId === "object" ? tx.envelopeId?.name || "" : "",
@@ -108,6 +74,7 @@ const TransactionHistory = ({
       "Type",
       "Title",
       "Amount",
+      "Currency",
       "PaymentMethod",
       "Envelope",
       "IncomeSource",
@@ -167,6 +134,11 @@ const TransactionHistory = ({
         );
         if (!Number.isFinite(rawAmount) || rawAmount <= 0) continue;
 
+        const currencyCode = String(row.currency || row.Currency || "PKR")
+          .trim()
+          .toUpperCase();
+        if (currencyCode && currencyCode !== "PKR") continue;
+
         const title = String(
           row.title || row.Title || row.purpose || row.Purpose || "Imported",
         ).trim();
@@ -175,9 +147,10 @@ const TransactionHistory = ({
             .trim()
             .toLowerCase() || "cash";
         const purpose = String(row.purpose || row.Purpose || "").trim();
-        const dateValue = row.date || row.Date || new Date().toISOString();
-        const date = new Date(dateValue);
-        const normalizedDate = Number.isNaN(date.getTime()) ? new Date() : date;
+        const dateValue = String(row.date || row.Date || "").trim();
+        const normalizedDate = dateValue
+          ? fromLocalDateInput(dateValue)
+          : new Date();
 
         const payload = {
           title,
@@ -250,7 +223,7 @@ const TransactionHistory = ({
         )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="text-sm font-semibold tracking-wide text-slate-200 truncate">
-            Transaction History ({filteredTransactions.length})
+            Transaction History ({txTotal})
           </h2>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <button
@@ -307,7 +280,7 @@ const TransactionHistory = ({
         </div>
       </div>
 
-      {filteredTransactions.length === 0 ? (
+      {transactions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/60 p-5 text-center">
           <p className="text-sm font-medium text-slate-200">
             No matching transactions found
@@ -315,7 +288,7 @@ const TransactionHistory = ({
         </div>
       ) : (
         <div className="space-y-3 min-w-0">
-          {paginatedTransactions.map((tx) => {
+          {transactions.map((tx) => {
             const isExpanded = expandedTxId === tx._id;
             return (
               <div
@@ -468,35 +441,31 @@ const TransactionHistory = ({
             );
           })}
 
-          {totalPages > 1 && (
+          {txPages > 1 && (
             <div className="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between">
               <p className="text-xs text-slate-400">
                 Page{" "}
                 <span className="font-semibold text-slate-200">
-                  {currentPage}
+                  {txPage}
                 </span>{" "}
                 of{" "}
                 <span className="font-semibold text-slate-200">
-                  {totalPages}
+                  {txPages}
                 </span>
               </p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  disabled={currentPage === 1}
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
+                  disabled={txPage <= 1 || transactionsLoading}
+                  onClick={() => loadTransactions?.(txPage - 1, false)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-950 text-slate-200 disabled:opacity-40"
                 >
                   Previous
                 </button>
                 <button
                   type="button"
-                  disabled={currentPage === totalPages}
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
+                  disabled={txPage >= txPages || transactionsLoading}
+                  onClick={() => loadTransactions?.(txPage + 1, false)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-950 text-slate-200 disabled:opacity-40"
                 >
                   Next

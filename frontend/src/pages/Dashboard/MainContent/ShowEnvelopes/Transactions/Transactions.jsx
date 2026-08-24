@@ -54,10 +54,17 @@ const Transactions = ({
               const envelopeExpenses =
                 transactionsByEnvelope[String(env._id)] || [];
 
-              const consumed = envelopeExpenses.reduce(
-                (acc, t) => acc + Number(t.amount || 0),
-                0,
-              );
+              const consumed =
+                env.consumed != null
+                  ? Number(env.consumed)
+                  : envelopeExpenses.reduce(
+                      (acc, t) => acc + Number(t.amount || 0),
+                      0,
+                    );
+              const remaining =
+                env.currentBalance != null
+                  ? Number(env.currentBalance)
+                  : (env.allocatedAmount || 0) - consumed;
               const isOpen = selectedEnvelopeId === env._id;
 
               return (
@@ -122,7 +129,7 @@ const Transactions = ({
                       <p className="truncate">
                         <strong className="text-slate-400">Remaining:</strong>{" "}
                         {symbol}
-                        {formatAmount((env.allocatedAmount || 0) - consumed)}
+                        {formatAmount(remaining)}
                       </p>
 
                       <div className="pt-2 min-w-0">

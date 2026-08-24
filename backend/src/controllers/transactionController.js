@@ -1,52 +1,109 @@
 const Transaction = require("../models/Transaction");
+const { getPeriodRange } = require("../utils/periodRange");
+
+const escapeRegex = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const parseIncomingDate = (value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "string") {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+    if (match) {
+      return new Date(
+        Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0, 0),
+      );
+    }
+  }
+  return value;
+};
 
 const getTransactions = async (req, res) => {
   try {
-    const { period, year, month, page = 1, limit = 50 } = req.query;
+    const { period, year, month, page = 1, limit = 50, search, type, sort, tzOffset } = req.query;
     let query = { userId: req.user._id };
-    const now = new Date();
-    const currentYear = year ? parseInt(year) : now.getFullYear();
-    const currentMonth = month ? parseInt(month) - 1 : now.getMonth();
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
 
-    if (period === "weekly") {
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(endOfWeek.getDate() + 6);
-      endOfWeek.setHours(23, 59, 59, 999);
-      query.date = { $gte: startOfWeek, $lte: endOfWeek };
-    } else if (period === "monthly") {
-      const startOfMonth = new Date(currentYear, currentMonth, 1);
-      const endOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
-      query.date = { $gte: startOfMonth, $lte: endOfMonth };
-    } else if (period === "yearly") {
-      const startOfYear = new Date(currentYear, 0, 1);
-      const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
-      query.date = { $gte: startOfYear, $lte: endOfYear };
+    const range = getPeriodRange({ period, year, month, tzOffset });
+    if (range) {
+      query.date = { $gte: range.start, $lte: range.end };
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    if (type === "income" || type === "expense") {
+      query.type = type;
+    }
 
-    // PERFORMANCE FIX: Parallel Execution & Lean Queries
-    const [total, transactions] = await Promise.all([
+    const searchText = typeof search === "string" ? search.trim() : "";
+    if (searchText) {
+      const regex = new RegExp(escapeRegex(searchText), "i");
+      query.$or = [
+        { title: regex },
+        { purpose: regex },
+        { paymentMethod: regex },
+      ];
+    }
+
+    const skip = (parsedPage - 1) * parsedLimit;
+    const sortDir = sort === "oldest" ? 1 : -1;
+    const periodQuery = { userId: req.user._id };
+    if (query.date) periodQuery.date = query.date;
+
+    const [total, transactions, summary] = await Promise.all([
       Transaction.countDocuments(query),
       Transaction.find(query)
         .populate("envelopeId", "name")
         .populate("incomeSource", "name allocatedAmount")
-        .sort({ date: -1 })
+        .sort({ date: sortDir })
         .skip(skip)
-        .limit(parseInt(limit))
-        .lean() 
+        .limit(parsedLimit)
+        .lean(),
+      Transaction.aggregate([
+        { $match: periodQuery },
+        {
+          $group: {
+            _id: "$type",
+            totalAmount: { $sum: "$amount" },
+            totalTax: {
+              $sum: {
+                $cond: [
+                  { $gt: [{ $ifNull: ["$taxAmount", 0] }, 0] },
+                  { $ifNull: ["$taxAmount", 0] },
+                  {
+                    $divide: [
+                      {
+                        $multiply: [
+                          { $ifNull: ["$amount", 0] },
+                          { $ifNull: ["$taxPercentage", 0] },
+                        ],
+                      },
+                      100,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]),
     ]);
 
-    const pages = Math.ceil(total / limit) || 1;
+    const totals = { income: 0, expense: 0, tax: 0 };
+    summary.forEach((row) => {
+      if (row._id === "income") totals.income = row.totalAmount || 0;
+      if (row._id === "expense") {
+        totals.expense = row.totalAmount || 0;
+        totals.tax = row.totalTax || 0;
+      }
+    });
 
-    res.status(200).json({ 
-      transactions, 
-      total, 
-      page: parseInt(page), 
-      pages 
+    const pages = Math.ceil(total / parsedLimit) || 1;
+
+    res.status(200).json({
+      transactions,
+      total,
+      page: parsedPage,
+      pages,
+      totals,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -73,7 +130,7 @@ const createTransaction = async (req, res) => {
       taxPercentage,
       taxAmount,
       taxApplication,
-      date: date || Date.now(),
+      date: parseIncomingDate(date) || Date.now(),
     });
 
     const populatedTx = await Transaction.findById(transaction._id)
@@ -98,7 +155,10 @@ const updateTransaction = async (req, res) => {
     ];
     
     fields.forEach(field => {
-      if (req.body[field] !== undefined) transaction[field] = req.body[field];
+      if (req.body[field] !== undefined) {
+        transaction[field] =
+          field === "date" ? parseIncomingDate(req.body[field]) : req.body[field];
+      }
     });
 
     transaction.envelopeId = transaction.type === "expense" ? (req.body.envelopeId || transaction.envelopeId) : undefined;

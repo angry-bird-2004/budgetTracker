@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { loginAPI, registerAPI } from "../services/api";
+import { loginAPI, registerAPI, setAuthToken } from "../services/api";
 import { AuthContext } from "./authContext";
 
 export { AuthContext };
@@ -24,9 +24,11 @@ export const AuthProvider = ({ children }) => {
       const parsed = JSON.parse(userInfo);
       if (!parsed?.token) {
         localStorage.removeItem("userInfo");
+        setAuthToken(null);
       }
     } catch {
       localStorage.removeItem("userInfo");
+      setAuthToken(null);
     }
   }, []);
 
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }) => {
     const { data } = await loginAPI(credentials);
     if (!data?.token) throw new Error("Login response did not include a token");
     localStorage.setItem("userInfo", JSON.stringify(data));
+    setAuthToken(data.token);
     setUser(data);
   };
 
@@ -42,11 +45,13 @@ export const AuthProvider = ({ children }) => {
     if (!data?.token)
       throw new Error("Register response did not include a token");
     localStorage.setItem("userInfo", JSON.stringify(data));
+    setAuthToken(data.token);
     setUser(data);
   };
 
   const logout = () => {
     localStorage.removeItem("userInfo");
+    setAuthToken(null);
     setUser(null);
   };
 
