@@ -31,22 +31,29 @@ app.use(compression());
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'http://localhost:8081',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
+  'http://127.0.0.1:8081',
   ...String(process.env.CLIENT_URL || '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
 ];
 
+const isDevOrigin = (origin) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin) ||
+  /^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/i.test(origin) ||
+  /^https?:\/\/(.*\.)?expo\.(dev|io)$/i.test(origin);
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/i.test(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/i.test(origin) || isDevOrigin(origin)) {
       callback(null, true);
       return;
     }
 
-    callback(new Error('Not allowed by CORS'));
+    callback(null, false);
   },
   credentials: true,
 }));
@@ -60,6 +67,7 @@ app.use('/api/envelopes', require('./routes/envelopeRoutes'));
 app.use('/api/income-envelopes', require('./routes/incomeEnvelopeRoutes')); // <--- Added Income Envelopes Route
 app.use('/api/transactions', require('./routes/transactionRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
+app.use('/api/sync', require('./routes/syncRoutes'));
 
 // Sentry error handler should be after all routes
 if (process.env.SENTRY_DSN) {
@@ -74,8 +82,19 @@ if (process.env.SENTRY_DSN) {
 }
 
 if (require.main === module) {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Backend server running on port http://localhost:${PORT}`));
+  const PORT = process.env.PORT || 5001;
+  const server = app.listen(PORT, () => {
+    console.log(`Backend server running on http://localhost:${PORT}`);
+  });
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(
+        `Port ${PORT} is already in use. On macOS, port 5000 is often taken by AirPlay Receiver. Set PORT in backend/.env to a free port.`,
+      );
+      process.exit(1);
+    }
+    throw error;
+  });
 }
 
 module.exports = app;

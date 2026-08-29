@@ -1,6 +1,8 @@
 const IncomeEnvelope = require('../models/IncomeEnvelope');
 const Transaction = require('../models/Transaction');
 const { taxAmountExpr } = require('../utils/taxAmountExpr');
+const { recordDeletion } = require('../utils/tombstone');
+const { isDuplicateKey, findExistingByClientId, normalizeClientId } = require('../utils/clientId');
 
 const getIncomeEnvelopes = async (req, res) => {
   try {
@@ -64,13 +66,27 @@ const getIncomeEnvelopes = async (req, res) => {
 const createIncomeEnvelope = async (req, res) => {
   try {
     const { name, allocatedAmount } = req.body;
+    const clientId = normalizeClientId(req.body.clientId);
+    if (clientId) {
+      const existing = await findExistingByClientId(IncomeEnvelope, req.user._id, clientId);
+      if (existing) return res.status(200).json(existing);
+    }
     const incomeEnvelope = await IncomeEnvelope.create({
       userId: req.user._id,
       name,
       allocatedAmount,
+      ...(clientId ? { clientId } : {}),
     });
     res.status(201).json(incomeEnvelope);
   } catch (error) {
+    if (isDuplicateKey(error)) {
+      const existing = await findExistingByClientId(
+        IncomeEnvelope,
+        req.user._id,
+        normalizeClientId(req.body.clientId),
+      );
+      if (existing) return res.status(200).json(existing);
+    }
     res.status(400).json({ message: error.message });
   }
 };
@@ -107,6 +123,7 @@ const deleteIncomeEnvelope = async (req, res) => {
     if (!incomeEnvelope) {
       return res.status(404).json({ message: 'Income envelope not found' });
     }
+    await recordDeletion(req.user._id, 'incomeEnvelope', incomeEnvelope._id);
     res.status(200).json({ message: 'Income envelope deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });

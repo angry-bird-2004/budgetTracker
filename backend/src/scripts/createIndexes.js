@@ -7,6 +7,8 @@ const Envelope = require('../models/Envelope');
 const IncomeEnvelope = require('../models/IncomeEnvelope');
 const Transaction = require('../models/Transaction');
 const Setting = require('../models/Setting');
+const RefreshToken = require('../models/RefreshToken');
+const DeletedRecord = require('../models/DeletedRecord');
 
 const run = async () => {
   try {
@@ -18,6 +20,8 @@ const run = async () => {
       IncomeEnvelope.syncIndexes(),
       Transaction.syncIndexes(),
       Setting.syncIndexes(),
+      RefreshToken.syncIndexes(),
+      DeletedRecord.syncIndexes(),
     ]);
 
     console.log('Indexes ensured successfully');

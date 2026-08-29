@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Transaction = require("../models/Transaction");
 const { getPeriodRange } = require("../utils/periodRange");
 const { taxAmountExpr } = require("../utils/taxAmountExpr");
+const { recordDeletion } = require("../utils/tombstone");
+const { isDuplicateKey, findExistingByClientId, normalizeClientId } = require("../utils/clientId");
 
 const toObjectId = (value) => {
   if (typeof value !== "string" || !/^[a-fA-F0-9]{24}$/.test(value)) return null;
@@ -108,6 +110,12 @@ const getTransactions = async (req, res) => {
   }
 };
 
+const populateTransaction = (id) =>
+  Transaction.findById(id)
+    .populate("envelopeId", "name clientId")
+    .populate("incomeSource", "name allocatedAmount clientId")
+    .lean();
+
 const createTransaction = async (req, res) => {
   try {
     const {
@@ -115,6 +123,14 @@ const createTransaction = async (req, res) => {
       purpose, taxPercentage, taxAmount, taxApplication,
       date, incomeSource,
     } = req.body;
+    const clientId = normalizeClientId(req.body.clientId);
+
+    if (clientId) {
+      const existing = await findExistingByClientId(Transaction, req.user._id, clientId);
+      if (existing) {
+        return res.status(200).json(await populateTransaction(existing._id));
+      }
+    }
 
     const transaction = await Transaction.create({
       userId: req.user._id,
@@ -129,15 +145,21 @@ const createTransaction = async (req, res) => {
       taxAmount,
       taxApplication,
       date: parseIncomingDate(date) || Date.now(),
+      ...(clientId ? { clientId } : {}),
     });
 
-    const populatedTx = await Transaction.findById(transaction._id)
-      .populate("envelopeId", "name")
-      .populate("incomeSource", "name allocatedAmount")
-      .lean();
-
-    res.status(201).json(populatedTx);
+    res.status(201).json(await populateTransaction(transaction._id));
   } catch (error) {
+    if (isDuplicateKey(error)) {
+      const existing = await findExistingByClientId(
+        Transaction,
+        req.user._id,
+        normalizeClientId(req.body.clientId),
+      );
+      if (existing) {
+        return res.status(200).json(await populateTransaction(existing._id));
+      }
+    }
     res.status(400).json({ message: error.message });
   }
 };
@@ -169,11 +191,7 @@ const updateTransaction = async (req, res) => {
 
     await transaction.save();
 
-    const updated = await Transaction.findById(transaction._id)
-      .populate("envelopeId", "name")
-      .populate("incomeSource", "name allocatedAmount")
-      .lean();
-    res.status(200).json(updated);
+    res.status(200).json(await populateTransaction(transaction._id));
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -183,6 +201,7 @@ const deleteTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
     if (!transaction) return res.status(404).json({ message: "Transaction not found" });
+    await recordDeletion(req.user._id, "transaction", transaction._id);
     res.status(200).json({ message: "Transaction deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });

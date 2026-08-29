@@ -21,9 +21,11 @@ const transactionSchema = new mongoose.Schema({
   taxAmount: { type: Number },
   taxApplication: { type: String }, // 'exclusive' or 'inclusive'
   date: { type: Date, default: Date.now },
-  updateLogs: [updateLogSchema]
+  updateLogs: [updateLogSchema],
+  clientId: { type: String, trim: true },
 }, { timestamps: true });
 
 transactionSchema.index({ userId: 1, date: -1 });
+transactionSchema.index({ userId: 1, clientId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

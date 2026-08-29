@@ -1,6 +1,8 @@
 const Envelope = require('../models/Envelope');
 const IncomeEnvelope = require('../models/IncomeEnvelope');
 const Transaction = require('../models/Transaction');
+const { recordDeletion } = require('../utils/tombstone');
+const { isDuplicateKey, findExistingByClientId, normalizeClientId } = require('../utils/clientId');
 
 const getConsumed = async (userId, type, envelopeId) => {
   const match =
@@ -83,9 +85,27 @@ const getEnvelopes = async (req, res) => {
 const createEnvelope = async (req, res) => {
   try {
     const { name, allocatedAmount } = req.body;
-    const envelope = await Envelope.create({ userId: req.user._id, name, allocatedAmount });
+    const clientId = normalizeClientId(req.body.clientId);
+    if (clientId) {
+      const existing = await findExistingByClientId(Envelope, req.user._id, clientId);
+      if (existing) return res.status(200).json(existing);
+    }
+    const envelope = await Envelope.create({
+      userId: req.user._id,
+      name,
+      allocatedAmount,
+      ...(clientId ? { clientId } : {}),
+    });
     res.status(201).json(envelope);
   } catch (error) {
+    if (isDuplicateKey(error)) {
+      const existing = await findExistingByClientId(
+        Envelope,
+        req.user._id,
+        normalizeClientId(req.body.clientId),
+      );
+      if (existing) return res.status(200).json(existing);
+    }
     res.status(400).json({ message: error.message });
   }
 };
@@ -200,6 +220,7 @@ const deleteEnvelope = async (req, res) => {
   try {
     const envelope = await Envelope.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
     if (!envelope) return res.status(404).json({ message: 'Envelope not found' });
+    await recordDeletion(req.user._id, 'envelope', envelope._id);
     res.status(200).json({ message: 'Envelope deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
