@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/auth-session.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 
 const Register = () => {

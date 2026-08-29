@@ -1,5 +1,10 @@
-import React, { useCallback, useContext, useMemo, useState } from "react";
-import { PeriodContext } from "./periodContext";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import {
   DEFAULT_PERIOD,
   getPeriodRangeLabel,
@@ -8,7 +13,7 @@ import {
   writeStoredPeriod,
 } from "../utils/period";
 
-export { PeriodContext };
+export const PeriodContext = createContext(null);
 
 export const PeriodProvider = ({ children }) => {
   const [period, setPeriodState] = useState(readStoredPeriod);

@@ -13,7 +13,7 @@ export const unstable_settings = {
   initialRouteName: 'index',
 };
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const Gate = ({ children }: { children: ReactNode }) => {
   const { user, ready } = useAuth();
@@ -21,7 +21,11 @@ const Gate = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync();
+    const timeout = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }, 2000);
+    if (ready) SplashScreen.hideAsync().catch(() => undefined);
+    return () => clearTimeout(timeout);
   }, [ready]);
 
   useEffect(() => {

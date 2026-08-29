@@ -49,9 +49,20 @@ export const runSync = async (mode: 'full' | 'incremental' = 'incremental') => {
   }
 };
 
-export const getSyncSnapshot = async () => ({
-  syncing,
-  pending: await countOutbox(),
-  lastSyncedAt: await getLastServerTime(),
-  online: await isOnline(),
-});
+export const getSyncSnapshot = async () => {
+  try {
+    return {
+      syncing,
+      pending: await countOutbox(),
+      lastSyncedAt: await getLastServerTime(),
+      online: await isOnline(),
+    };
+  } catch {
+    return {
+      syncing,
+      pending: 0,
+      lastSyncedAt: null,
+      online: await isOnline().catch(() => false),
+    };
+  }
+};

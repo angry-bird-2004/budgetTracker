@@ -27,6 +27,9 @@ const incomeEnvelopeSchema = new mongoose.Schema(
 
 // Index common lookup fields
 incomeEnvelopeSchema.index({ userId: 1, name: 1 });
-incomeEnvelopeSchema.index({ userId: 1, clientId: 1 }, { unique: true, sparse: true });
+incomeEnvelopeSchema.index(
+  { userId: 1, clientId: 1 },
+  { unique: true, partialFilterExpression: { clientId: { $type: 'string', $gt: '' } } },
+);
 
 module.exports = mongoose.model('IncomeEnvelope', incomeEnvelopeSchema);

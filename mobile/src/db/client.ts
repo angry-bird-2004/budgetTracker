@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS envelopes (
   created_at TEXT,
   updated_at TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS envelopes_server_id ON envelopes(server_id);
+CREATE INDEX IF NOT EXISTS envelopes_server_id ON envelopes(server_id);
 
 CREATE TABLE IF NOT EXISTS income_envelopes (
   client_id TEXT PRIMARY KEY NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS income_envelopes (
   created_at TEXT,
   updated_at TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS income_envelopes_server_id ON income_envelopes(server_id);
+CREATE INDEX IF NOT EXISTS income_envelopes_server_id ON income_envelopes(server_id);
 
 CREATE TABLE IF NOT EXISTS transactions (
   client_id TEXT PRIMARY KEY NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TEXT,
   updated_at TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS transactions_server_id ON transactions(server_id);
+CREATE INDEX IF NOT EXISTS transactions_server_id ON transactions(server_id);
 
 CREATE TABLE IF NOT EXISTS settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,10 +95,15 @@ export const getDb = () => {
 
 export const initDatabase = async () => {
   if (initialized) return getDb();
-  const database = getSqlite();
-  await database.execAsync(SCHEMA_SQL);
-  initialized = true;
-  return getDb();
+  try {
+    const database = getSqlite();
+    await database.execAsync(SCHEMA_SQL);
+    initialized = true;
+    return getDb();
+  } catch (error) {
+    console.warn('Failed to initialize SQLite', error);
+    throw error;
+  }
 };
 
 export const clearLocalDatabase = async () => {

@@ -117,7 +117,7 @@ export const saveTransaction = async (input: {
     createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
   });
-  await enqueueOutbox(existing ? 'transaction' : 'transaction', existing ? 'update' : 'create', clientId, {
+  await enqueueOutbox('transaction', existing ? 'update' : 'create', clientId, {
     clientId,
     title: input.title,
     amount: input.amount,
@@ -130,6 +130,28 @@ export const saveTransaction = async (input: {
     taxAmount: input.taxAmount,
     taxApplication: input.taxApplication,
     date: input.date,
+  });
+  const envelopes = useBudgetStore.getState().envelopes;
+  const incomeEnvelopes = useBudgetStore.getState().incomeEnvelopes;
+  useBudgetStore.getState().upsertLocalTransaction({
+    clientId,
+    serverId: existing?.serverId ?? null,
+    title: input.title,
+    amount: input.amount,
+    type: input.type,
+    envelopeClientId: input.envelopeClientId || null,
+    incomeClientId: input.incomeClientId || null,
+    paymentMethod: input.paymentMethod,
+    purpose: input.purpose || '',
+    taxPercentage: input.taxPercentage ?? null,
+    taxAmount: input.taxAmount ?? null,
+    taxApplication: input.taxApplication ?? null,
+    date: input.date,
+    updateLogs: existing?.updateLogs ?? [],
+    createdAt: existing?.createdAt ?? timestamp,
+    updatedAt: timestamp,
+    envelopeName: envelopes.find((item) => item.clientId === input.envelopeClientId)?.name ?? null,
+    incomeName: incomeEnvelopes.find((item) => item.clientId === input.incomeClientId)?.name ?? null,
   });
   await reloadAndSync();
   return clientId;

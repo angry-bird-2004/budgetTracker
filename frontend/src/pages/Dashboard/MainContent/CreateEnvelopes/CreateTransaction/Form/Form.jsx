@@ -63,17 +63,27 @@ const Form = ({
         </label>
         <select
           required
-          value={incomeSource}
+          value={incomeSource || ""}
           onChange={(e) => setIncomeSource(e.target.value)}
           className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500 truncate"
         >
-          <option value="">Select Income Envelope Source</option>
+          <option value="">
+            {Array.isArray(incomeEnvelopes) && incomeEnvelopes.length
+              ? "Select Income Envelope Source"
+              : "No income envelopes yet"}
+          </option>
           <IncomeOption
             incomeEnvelopes={incomeEnvelopes}
             symbol={symbol}
             formatAmount={formatAmount}
           />
         </select>
+        {(!Array.isArray(incomeEnvelopes) || incomeEnvelopes.length === 0) && (
+          <p className="mt-1 text-[11px] text-slate-500">
+            Create an income envelope first — it will show up here for new
+            transactions.
+          </p>
+        )}
       </div>
 
       <PaymentMethode

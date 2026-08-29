@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, Text } from 'react-native';
 import { Button, ErrorBanner, Field, Screen, SelectList } from '@/src/components/ui';
 import { useMoney } from '@/src/hooks/useMoney';
@@ -38,6 +38,15 @@ export default function TransactionFormScreen() {
   const [taxApplication, setTaxApplication] = useState<TaxApplication>(existing?.taxApplication ?? 'exclusive');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!envelopeClientId && envelopes[0]?.clientId) {
+      setEnvelopeClientId(envelopes[0].clientId);
+    }
+    if (!incomeClientId && (linkedIncomeClientId || incomeEnvelopes[0]?.clientId)) {
+      setIncomeClientId(linkedIncomeClientId || incomeEnvelopes[0].clientId);
+    }
+  }, [envelopes, incomeEnvelopes, linkedIncomeClientId, envelopeClientId, incomeClientId]);
 
   const onSave = async () => {
     const parsed = Number(amount);

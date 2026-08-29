@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { fetchAllTransactions, fetchIncomeEnvelopes } from "../../../services/api";
-import { usePeriod } from "../../../context/PeriodContext";
+import { usePeriod } from "../../../context/budget-period.jsx";
 
 const AnalyticsPage = () => {
   const { period, periodLabel } = usePeriod();

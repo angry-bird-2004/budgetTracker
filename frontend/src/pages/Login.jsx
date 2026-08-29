@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/auth-session.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
@@ -18,10 +18,19 @@ const Login = () => {
     setError('');
 
     try {
-      await login({ email, password });
+      if (typeof login !== 'function') {
+        setError('Auth is not ready. Refresh the page and try again.');
+        return;
+      }
+      await login({ email: email.trim(), password });
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      const apiMessage = err.response?.data?.message;
+      const networkMessage =
+        err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+          ? 'Cannot reach the API. Confirm the backend is running on port 5001.'
+          : err.message;
+      setError(apiMessage || networkMessage || 'Login failed');
     } finally {
       setIsSubmitting(false);
     }

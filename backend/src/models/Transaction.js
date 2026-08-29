@@ -26,6 +26,9 @@ const transactionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 transactionSchema.index({ userId: 1, date: -1 });
-transactionSchema.index({ userId: 1, clientId: 1 }, { unique: true, sparse: true });
+transactionSchema.index(
+  { userId: 1, clientId: 1 },
+  { unique: true, partialFilterExpression: { clientId: { $type: 'string', $gt: '' } } },
+);
 
 module.exports = mongoose.model('Transaction', transactionSchema);

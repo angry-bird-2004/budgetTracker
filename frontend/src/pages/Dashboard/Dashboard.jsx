@@ -26,7 +26,7 @@ import { useExchangeRate } from "../../Hooks/useExchangeRate";
 import { toBaseAmount, fromBaseAmount } from "../../utils/amounts";
 import { toLocalDateInput, fromLocalDateInput } from "../../utils/dates";
 import { DEFAULT_TRANSACTION_PAGE_SIZE, MAX_TRANSACTION_PAGE_SIZE, MIN_TRANSACTION_PAGE_SIZE } from "./Settings/constants";
-import { usePeriod } from "../../context/PeriodContext";
+import { usePeriod } from "../../context/budget-period.jsx";
 
 const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
@@ -48,6 +48,7 @@ const Dashboard = () => {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [envelopesLoading, setEnvelopesLoading] = useState(false);
   const [incomeEnvelopesLoading, setIncomeEnvelopesLoading] = useState(false);
+  const [envelopesError, setEnvelopesError] = useState("");
 
   const [currency, setCurrency] = useState("PKR");
   const { conversionRate, loading } = useExchangeRate();
@@ -181,26 +182,48 @@ const Dashboard = () => {
     };
   }, []);
 
+  const normalizeEnvelopeList = (data) => {
+    if (!Array.isArray(data)) return [];
+    return data
+      .map((item) => ({
+        ...item,
+        _id: item?._id != null ? String(item._id) : "",
+      }))
+      .filter((item) => item._id);
+  };
+
   const loadEnvelopes = React.useCallback(async () => {
     setEnvelopesLoading(true);
     setIncomeEnvelopesLoading(true);
+    setEnvelopesError("");
     try {
       const envRes = await fetchEnvelopes();
-      setEnvelopes(Array.isArray(envRes.data) ? envRes.data : []);
+      setEnvelopes(normalizeEnvelopeList(envRes.data));
 
       try {
         const incomeEnvRes = await fetchIncomeEnvelopes();
-        setIncomeEnvelopes(
-          Array.isArray(incomeEnvRes.data) ? incomeEnvRes.data : [],
-        );
+        setIncomeEnvelopes(normalizeEnvelopeList(incomeEnvRes.data));
       } catch (e) {
         console.warn(
           "Income envelopes fetch skipped or endpoint not ready:",
           e,
         );
+        setIncomeEnvelopes([]);
+        setEnvelopesError(
+          e?.response?.data?.message ||
+            e?.message ||
+            "Could not load income envelopes.",
+        );
       }
     } catch (err) {
       console.error(err);
+      setEnvelopes([]);
+      setIncomeEnvelopes([]);
+      setEnvelopesError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Could not load envelopes. Confirm the web app can reach the API.",
+      );
     } finally {
       setEnvelopesLoading(false);
       setIncomeEnvelopesLoading(false);
@@ -798,6 +821,12 @@ const Dashboard = () => {
 
           <Analysis period={period} setPeriod={setPeriod} />
         </Suspense>
+
+        {envelopesError && (
+          <div className="rounded-lg border border-rose-800 bg-rose-950/60 px-4 py-3 text-xs text-rose-200">
+            {envelopesError}
+          </div>
+        )}
 
         <Header
           totalIncome={totalIncome}

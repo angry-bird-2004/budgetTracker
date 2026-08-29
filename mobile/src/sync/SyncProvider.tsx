@@ -27,11 +27,15 @@ export const SyncProvider = ({ children }: { children: React.ReactNode }) => {
   const load = useBudgetStore((state) => state.load);
 
   const refreshSnapshot = async () => {
-    const snapshot = await getSyncSnapshot();
-    setStatus((current) => ({
-      ...current,
-      ...snapshot,
-    }));
+    try {
+      const snapshot = await getSyncSnapshot();
+      setStatus((current) => ({
+        ...current,
+        ...snapshot,
+      }));
+    } catch {
+      // Keep the last known status if the local database is not ready.
+    }
   };
 
   const refresh = async () => {

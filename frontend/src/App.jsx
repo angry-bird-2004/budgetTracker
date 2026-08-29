@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { PeriodProvider } from './context/PeriodContext';
+import { AuthProvider } from './context/auth-session.jsx';
+import { PeriodProvider } from './context/budget-period.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';

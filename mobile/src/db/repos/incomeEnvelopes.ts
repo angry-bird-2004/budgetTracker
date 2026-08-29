@@ -12,8 +12,10 @@ export type IncomeEnvelopeRow = {
   updatedAt: string | null;
 };
 
-export const listIncomeEnvelopeRows = async (): Promise<IncomeEnvelopeRow[]> =>
-  getDb().select().from(incomeEnvelopes);
+export const listIncomeEnvelopeRows = async (): Promise<IncomeEnvelopeRow[]> => {
+  const rows = await getDb().select().from(incomeEnvelopes);
+  return Array.isArray(rows) ? rows : [];
+};
 
 export const getIncomeEnvelopeByClientId = async (clientId: string) =>
   getDb().select().from(incomeEnvelopes).where(eq(incomeEnvelopes.clientId, clientId)).get();

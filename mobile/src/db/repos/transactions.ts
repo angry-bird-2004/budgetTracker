@@ -23,8 +23,10 @@ export type TransactionRow = {
   updatedAt: string | null;
 };
 
-export const listTransactionRows = async (): Promise<TransactionRow[]> =>
-  (await getDb().select().from(transactions)) as TransactionRow[];
+export const listTransactionRows = async (): Promise<TransactionRow[]> => {
+  const rows = await getDb().select().from(transactions);
+  return (Array.isArray(rows) ? rows : []) as TransactionRow[];
+};
 
 export const getTransactionByClientId = async (clientId: string) => {
   const row = getDb().select().from(transactions).where(eq(transactions.clientId, clientId)).get();

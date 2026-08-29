@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { loginRequest, logoutRequest, registerRequest } from '../api/endpoints';
 import { apiErrorMessage, refreshSession, setMemorySession, setOnAuthInvalid } from '../api/client';
-import { clearLocalDatabase } from '../db/client';
 import type { AuthUser, Session } from '../types';
 import { clearSession, readSession, writeSession } from './session';
 
@@ -43,22 +42,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     (async () => {
-      const stored = await readSession();
-      if (!stored) {
-        setReady(true);
-        return;
-      }
-
-      setMemorySession(stored);
-      setUser(stored.user);
-
-      const refreshed = await refreshSession();
-      if (refreshed) {
-        setUser(refreshed.user);
-      } else if (!(await readSession())) {
+      try {
+        const stored = await readSession();
+        if (stored) {
+          setMemorySession(stored);
+          setUser(stored.user);
+        }
+      } catch {
         setUser(null);
+      } finally {
+        setReady(true);
       }
-      setReady(true);
+
+      refreshSession()
+        .then(async (refreshed) => {
+          if (refreshed) setUser(refreshed.user);
+          else if (!(await readSession())) setUser(null);
+        })
+        .catch(() => undefined);
     })();
 
     return () => setOnAuthInvalid(null);
@@ -93,7 +94,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setMemorySession(null);
     await clearSession();
-    await clearLocalDatabase();
+    try {
+      const { clearLocalDatabase } = await import('../db/client');
+      await clearLocalDatabase();
+    } catch {
+      // Database may be unavailable in Expo Go; session is still cleared.
+    }
     setUser(null);
   };
 

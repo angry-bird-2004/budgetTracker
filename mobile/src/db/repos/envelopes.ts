@@ -13,8 +13,10 @@ export type EnvelopeRow = {
   updatedAt: string | null;
 };
 
-export const listEnvelopeRows = async (): Promise<EnvelopeRow[]> =>
-  getDb().select().from(envelopes);
+export const listEnvelopeRows = async (): Promise<EnvelopeRow[]> => {
+  const rows = await getDb().select().from(envelopes);
+  return Array.isArray(rows) ? rows : [];
+};
 
 export const getEnvelopeByClientId = async (clientId: string) =>
   getDb().select().from(envelopes).where(eq(envelopes.clientId, clientId)).get();

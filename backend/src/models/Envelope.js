@@ -11,6 +11,9 @@ const envelopeSchema = new mongoose.Schema({
 
 // Index common query fields to improve lookup performance
 envelopeSchema.index({ userId: 1, name: 1 });
-envelopeSchema.index({ userId: 1, clientId: 1 }, { unique: true, sparse: true });
+envelopeSchema.index(
+  { userId: 1, clientId: 1 },
+  { unique: true, partialFilterExpression: { clientId: { $type: 'string', $gt: '' } } },
+);
 
 module.exports = mongoose.model('Envelope', envelopeSchema);

@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/auth-session.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const navButtonClass = (active, hoverClass) =>

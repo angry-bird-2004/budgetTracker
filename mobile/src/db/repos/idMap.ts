@@ -14,12 +14,26 @@ export const rememberServerId = async (
 };
 
 export const getServerId = async (entity: OutboxEntity, clientId: string) => {
-  const row = await getDb()
+  const row = getDb()
     .select()
     .from(idMap)
     .where(and(eq(idMap.entity, entity), eq(idMap.clientId, clientId)))
     .get();
-  return row?.serverId ?? null;
+  if (row?.serverId) return row.serverId;
+
+  if (entity === 'envelope') {
+    const { getEnvelopeByClientId } = await import('./envelopes');
+    return (await getEnvelopeByClientId(clientId))?.serverId ?? null;
+  }
+  if (entity === 'incomeEnvelope') {
+    const { getIncomeEnvelopeByClientId } = await import('./incomeEnvelopes');
+    return (await getIncomeEnvelopeByClientId(clientId))?.serverId ?? null;
+  }
+  if (entity === 'transaction') {
+    const { getTransactionByClientId } = await import('./transactions');
+    return (await getTransactionByClientId(clientId))?.serverId ?? null;
+  }
+  return null;
 };
 
 export const getClientIdByServerId = async (entity: OutboxEntity, serverId: string) => {

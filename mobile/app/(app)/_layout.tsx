@@ -12,10 +12,14 @@ export default function AppLayout() {
 
   useEffect(() => {
     (async () => {
-      await initDatabase();
-      await hydrate();
-      await load();
-      runSync('full').then(() => load()).catch(() => undefined);
+      try {
+        await initDatabase();
+        await hydrate();
+        await load();
+        runSync('full').then(() => load()).catch(() => undefined);
+      } catch (error) {
+        console.warn('Failed to start local database', error);
+      }
     })();
   }, [hydrate, load]);
 

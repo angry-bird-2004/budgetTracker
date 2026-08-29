@@ -94,9 +94,18 @@ const flushItem = async (item: OutboxItem) => {
         throw new Error('Linked income envelope is still waiting to sync');
       }
       const { data } = await createTransactionRequest({
-        ...payload,
+        clientId: payload.clientId || item.clientId,
+        title: payload.title,
+        amount: payload.amount,
+        type: payload.type,
         envelopeId,
         incomeSource,
+        paymentMethod: payload.paymentMethod,
+        purpose: payload.purpose,
+        taxPercentage: payload.taxPercentage,
+        taxAmount: payload.taxAmount,
+        taxApplication: payload.taxApplication,
+        date: payload.date,
       });
       const local = await getTransactionByClientId(item.clientId);
       if (local) {
@@ -161,6 +170,9 @@ export const flushOutbox = async () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Sync failed';
       await markOutboxError(item.id, message);
+      if (message.includes('waiting to sync')) {
+        continue;
+      }
       if (axios.isAxiosError(error) && !error.response) {
         throw error;
       }

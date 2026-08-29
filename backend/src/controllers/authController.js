@@ -24,13 +24,23 @@ const createRefreshToken = async (userId, deviceLabel) => {
   return token;
 };
 
-const buildAuthPayload = async (user, deviceLabel) => ({
-  _id: user._id,
-  username: user.username,
-  email: user.email,
-  token: generateAccessToken(user._id),
-  refreshToken: await createRefreshToken(user._id, deviceLabel),
-});
+const buildAuthPayload = async (user, deviceLabel) => {
+  const token = generateAccessToken(user._id);
+  let refreshToken = '';
+  try {
+    refreshToken = await createRefreshToken(user._id, deviceLabel);
+  } catch (error) {
+    console.error('Failed to create refresh token:', error.message);
+  }
+
+  return {
+    _id: user._id,
+    username: user.username,
+    email: user.email,
+    token,
+    refreshToken,
+  };
+};
 
 const registerUser = async (req, res) => {
   try {
@@ -53,9 +63,17 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    const { email, password, deviceLabel } = req.body;
+    const email = String(req.body.email || '').trim();
+    const password = req.body.password;
+    const deviceLabel = req.body.deviceLabel;
 
-    const user = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+    });
 
     if (user && (await user.matchPassword(password))) {
       return res.json(await buildAuthPayload(user, deviceLabel));

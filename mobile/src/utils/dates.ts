@@ -19,7 +19,13 @@ export const fromLocalDateInput = (value?: string) => {
 };
 
 export const toIsoDate = (value?: string | Date | null) => {
-  const date = value instanceof Date ? value : value ? new Date(value) : new Date();
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? new Date().toISOString() : value.toISOString();
+  }
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return fromLocalDateInput(value).toISOString();
+  }
+  const date = value ? new Date(value) : new Date();
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 };
 

@@ -14,6 +14,7 @@ type BudgetState = {
   transactions: Transaction[];
   settings: Settings;
   load: () => Promise<void>;
+  upsertLocalTransaction: (transaction: Transaction) => void;
 };
 
 export const useBudgetStore = create<BudgetState>((set) => ({
@@ -51,6 +52,25 @@ export const useBudgetStore = create<BudgetState>((set) => ({
       incomeEnvelopes: incomeRows
         .map((row) => withIncomeStats(row, transactions))
         .sort((a, b) => a.name.localeCompare(b.name)),
+    });
+  },
+  upsertLocalTransaction: (transaction) => {
+    set((state) => {
+      const transactions = [
+        transaction,
+        ...state.transactions.filter((item) => item.clientId !== transaction.clientId),
+      ];
+      return {
+        transactions,
+        envelopes: state.envelopes.map((row) => {
+          const { consumed, credited, currentBalance, ...rest } = row;
+          return withEnvelopeStats(rest, transactions);
+        }),
+        incomeEnvelopes: state.incomeEnvelopes.map((row) => {
+          const { consumed, income, tax, currentBalance, ...rest } = row;
+          return withIncomeStats(rest, transactions);
+        }),
+      };
     });
   },
 }));
