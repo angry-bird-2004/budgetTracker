@@ -805,6 +805,7 @@ const Dashboard = () => {
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-8 w-full">
         <Navbar />
 
+        <div className="flex flex-col gap-4">Testing Transaction Data</div>
         <Suspense fallback={<div />}>
           <Currency
             loading={loading}
