@@ -27,7 +27,10 @@ const Maincontent = ({
   editingIncomeEnvId,
   incomeFormRef,
   handleTransferBetweenEnvelopes,
+  handleDeleteTransfer,
+  handleUpdateTransfer,
   transactions,
+  transfers = [], 
   handleDeleteEnvelope,
   handleUpdateEnvelope,
   editingEnvId,
@@ -96,6 +99,7 @@ const Maincontent = ({
   transactionsLoading,
   envelopesLoading,
   incomeEnvelopesLoading,
+  transfersLoading = false,
 }) => {
   const [expandedTxId, setExpandedTxId] = useState(null);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState(null);
@@ -106,8 +110,39 @@ const Maincontent = ({
   const [fromEnvId, setFromEnvId] = useState("");
   const [toEnvId, setToEnvId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
+  const [editingTransferId, setEditingTransferId] = useState(null);
 
   const symbol = currency === "PKR" ? "Rs " : "$";
+
+  const resetTransferForm = () => {
+    setTransferType("expense");
+    setFromEnvId("");
+    setToEnvId("");
+    setTransferAmount("");
+    setEditingTransferId(null);
+  };
+
+  const handleTransferEdit = (transfer) => {
+    const sourceList = transfer.type === "expense" ? envelopes : incomeEnvelopes;
+    const fromIdValue = transfer.fromEnvelopeId || transfer.fromId || "";
+    const toIdValue = transfer.toEnvelopeId || transfer.toId || "";
+    const displayedAmount = fromBaseAmount(
+      Number(transfer.amount || 0),
+      currency,
+      conversionRate,
+    );
+
+    setTransferType(transfer.type === "income" ? "income" : "expense");
+    setFromEnvId(fromIdValue);
+    setToEnvId(toIdValue);
+    setTransferAmount(displayedAmount > 0 ? displayedAmount.toFixed(2) : "0");
+    setEditingTransferId(transfer._id);
+    setShowTransferModal(true);
+
+    if (!sourceList.length) {
+      alert("Transfer cannot be edited right now because the envelope list is still loading.");
+    }
+  };
 
   const executeTransfer = async (e) => {
     e.preventDefault();
@@ -125,6 +160,7 @@ const Maincontent = ({
 
     const list = transferType === "expense" ? envelopes : incomeEnvelopes;
     const source = list.find((env) => env._id === fromEnvId);
+    const destination = list.find((env) => env._id === toEnvId);
     const remaining = Math.max(
       0,
       source?.currentBalance != null
@@ -132,24 +168,32 @@ const Maincontent = ({
         : Number(source?.allocatedAmount || 0) - Number(source?.consumed || 0),
     );
     const baseAmount = toBaseAmount(parsedAmount, currency, conversionRate);
-    if (baseAmount > remaining) {
+    if (baseAmount > remaining && !editingTransferId) {
       alert("Transfer exceeds remaining funds in the source envelope.");
       return;
     }
 
     try {
-      await handleTransferBetweenEnvelopes(
-        transferType,
-        fromEnvId,
-        toEnvId,
-        parsedAmount,
-      );
+      if (editingTransferId) {
+        await handleUpdateTransfer(editingTransferId, {
+          type: transferType,
+          fromId: fromEnvId,
+          toId: toEnvId,
+          amount: parsedAmount,
+          purpose: `${source?.name || "Envelope"} → ${destination?.name || "Destination"}`,
+        });
+      } else {
+        await handleTransferBetweenEnvelopes(
+          transferType,
+          fromEnvId,
+          toEnvId,
+          parsedAmount,
+        );
+      }
       setShowTransferModal(false);
-      setFromEnvId("");
-      setToEnvId("");
-      setTransferAmount("");
+      resetTransferForm();
     } catch {
-      // Keep the modal open so the user can correct the amount.
+      // Keep modal open on error
     }
   };
 
@@ -262,6 +306,10 @@ const Maincontent = ({
         <TransferFund
           showTransferModal={showTransferModal}
           setShowTransferModal={setShowTransferModal}
+          closeTransferModal={() => {
+            setShowTransferModal(false);
+            resetTransferForm();
+          }}
           transferType={transferType}
           setTransferType={setTransferType}
           fromEnvId={fromEnvId}
@@ -307,6 +355,7 @@ const Maincontent = ({
 
         <TransactionHistory
           transactions={transactions}
+          transfers={transfers}
           envelopes={envelopes}
           incomeEnvelopes={incomeEnvelopes}
           expandedTxId={expandedTxId}
@@ -315,6 +364,8 @@ const Maincontent = ({
           formatAmount={formatAmount}
           handleStartEditTransaction={handleStartEditTransaction}
           handleDeleteTransaction={handleDeleteTransaction}
+          handleDeleteTransfer={handleDeleteTransfer}
+          handleStartEditTransfer={handleTransferEdit}
           handleImportTransactions={handleImportTransactions}
           handleExportTransactions={handleExportTransactions}
           isSubmitting={isSubmitting}
@@ -330,6 +381,7 @@ const Maincontent = ({
           txTotal={txTotal}
           txLimit={txLimit}
           transactionsLoading={transactionsLoading}
+          transfersLoading={transfersLoading}
           period={period}
         />
       </div>

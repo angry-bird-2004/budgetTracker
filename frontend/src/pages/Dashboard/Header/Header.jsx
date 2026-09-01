@@ -52,7 +52,7 @@ const Header = ({
           {isLoading && (
             <span className="inline-flex items-center gap-1.5 text-[10px] text-indigo-400 font-medium animate-pulse">
               <span className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
-              Updating...
+              Loading...
             </span>
           )}
         </div>

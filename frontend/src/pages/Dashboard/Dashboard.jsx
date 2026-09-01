@@ -14,6 +14,9 @@ import {
   updateIncomeEnvelope,
   removeIncomeEnvelope,
   transferFunds,
+  fetchTransfers,
+  removeTransfer,
+  updateTransfer,
   fetchSettings,
 } from "../../services/api";
 import Navbar from "../../components/Navbar";
@@ -36,12 +39,14 @@ const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
   const [incomeEnvelopes, setIncomeEnvelopes] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [transfers, setTransfers] = useState([]);
   const [txPage, setTxPage] = useState(1);
   const [txPages, setTxPages] = useState(1);
   const [txTotal, setTxTotal] = useState(0);
   const [txLimit, setTxLimit] = useState(DEFAULT_TRANSACTION_PAGE_SIZE);
   const [settingsReady, setSettingsReady] = useState(false);
   const [txTotals, setTxTotals] = useState({ income: 0, expense: 0, tax: 0 });
+  const [editingTransferId, setEditingTransferId] = useState(null);
   const { period, setPeriod } = usePeriod();
   const [transactionSearch, setTransactionSearch] = useState("");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
@@ -56,6 +61,7 @@ const Dashboard = () => {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [envelopesLoading, setEnvelopesLoading] = useState(false);
   const [incomeEnvelopesLoading, setIncomeEnvelopesLoading] = useState(false);
+  const [transfersLoading, setTransfersLoading] = useState(false);
 
   const [currency, setCurrency] = useState("PKR");
   const { conversionRate, loading } = useExchangeRate();
@@ -180,6 +186,18 @@ const Dashboard = () => {
     [period, txLimit, debouncedSearch, transactionTypeFilter, transactionSort],
   );
 
+  const loadTransfers = React.useCallback(async () => {
+    setTransfersLoading(true);
+    try {
+      const res = await fetchTransfers(period);
+      setTransfers(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.warn("Failed to load transfer history:", err);
+    } finally {
+      setTransfersLoading(false);
+    }
+  }, [period]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -237,15 +255,20 @@ const Dashboard = () => {
 
   const loadData = React.useCallback(async () => {
     try {
-      await Promise.all([loadEnvelopes(), loadTransactions(1, false)]);
+      await Promise.all([
+        loadEnvelopes(),
+        loadTransactions(1, false),
+        loadTransfers(),
+      ]);
     } finally {
       setIsInitialLoad(false);
     }
-  }, [loadEnvelopes, loadTransactions]);
+  }, [loadEnvelopes, loadTransactions, loadTransfers]);
 
   useEffect(() => {
     void loadEnvelopes();
-  }, [loadEnvelopes]);
+    void loadTransfers();
+  }, [loadEnvelopes, loadTransfers]);
 
   useEffect(() => {
     if (!settingsReady) return;
@@ -253,7 +276,7 @@ const Dashboard = () => {
     let isMounted = true;
 
     const fetchPage = async () => {
-      await loadTransactions(1, false);
+      await Promise.all([loadTransactions(1, false), loadTransfers()]);
       if (isMounted) setIsInitialLoad(false);
     };
 
@@ -262,7 +285,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [loadTransactions, settingsReady]);
+  }, [loadTransactions, loadTransfers, settingsReady]);
 
   useEffect(() => {
     const timer = analyticsTimer.current;
@@ -506,6 +529,70 @@ const Dashboard = () => {
     }
   };
 
+  const handleDeleteTransfer = async (transferId) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await removeTransfer(transferId);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to delete transfer:", error);
+      alert(error.response?.data?.message || "Failed to delete transfer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateTransfer = async (transferId, updateData) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const baseTransferAmount = toBaseAmount(
+        Number(updateData.amount),
+        currency,
+        conversionRate,
+      );
+
+      await updateTransfer(transferId, {
+        ...updateData,
+        amount: baseTransferAmount,
+      });
+
+      setEditingTransferId(null);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to update transfer:", error);
+      alert(error.response?.data?.message || "Failed to update transfer.");
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartEditTransfer = (transfer) => {
+    const sourceList = transfer.type === "expense" ? envelopes : incomeEnvelopes;
+    const fromEnvIdValue = transfer.fromEnvelopeId || transfer.fromId || "";
+    const toEnvIdValue = transfer.toEnvelopeId || transfer.toId || "";
+    const displayedAmount = fromBaseAmount(
+      Number(transfer.amount || 0),
+      currency,
+      conversionRate,
+    );
+
+    setTransferType(transfer.type === "income" ? "income" : "expense");
+    setFromEnvId(fromEnvIdValue);
+    setToEnvId(toEnvIdValue);
+    setTransferAmount(displayedAmount > 0 ? displayedAmount.toFixed(2) : "0");
+    setEditingTransferId(transfer._id);
+    setShowTransferModal(true);
+
+    if (!sourceList.length) {
+      setTimeout(() => {
+        alert("Transfer cannot be edited right now because the envelope list is still loading.");
+      }, 50);
+    }
+  };
+
   const resetExpenseForm = () => {
     setTxTitle("");
     setTxAmount("");
@@ -718,7 +805,11 @@ const Dashboard = () => {
       if (editingTxId === id) {
         handleCancelEditTransaction();
       }
-      await Promise.all([loadEnvelopes(), loadTransactions(txPage, false)]);
+      await Promise.all([
+        loadEnvelopes(),
+        loadTransactions(txPage, false),
+        loadTransfers(),
+      ]);
     } finally {
       setIsSubmitting(false);
     }
@@ -766,7 +857,11 @@ const Dashboard = () => {
 
       const importedCount = createdCount + updatedCount;
       if (importedCount > 0) {
-        await Promise.all([loadEnvelopes(), loadTransactions(1, false)]);
+        await Promise.all([
+          loadEnvelopes(),
+          loadTransactions(1, false),
+          loadTransfers(),
+        ]);
         alert(
           `${importedCount} transaction(s) imported successfully (${createdCount} created, ${updatedCount} updated).`,
         );
@@ -824,7 +919,12 @@ const Dashboard = () => {
           period={period}
           selectedEnvelopeId={selectedEnvelopeId}
           onSelectEnvelope={handleSelectEnvelope}
-          isLoading={isHeaderLoading || isInitialLoad || incomeEnvelopesLoading || transactionsLoading}
+          isLoading={
+            isHeaderLoading ||
+            isInitialLoad ||
+            incomeEnvelopesLoading ||
+            transactionsLoading
+          }
         />
 
         <Suspense fallback={<div />}>
@@ -848,7 +948,10 @@ const Dashboard = () => {
             setEditingIncomeEnvId={setEditingIncomeEnvId}
             incomeFormRef={incomeFormRef}
             handleTransferBetweenEnvelopes={handleTransferBetweenEnvelopes}
+            handleDeleteTransfer={handleDeleteTransfer}
+            handleUpdateTransfer={handleUpdateTransfer}
             transactions={transactions}
+            transfers={transfers}
             handleDeleteEnvelope={handleDeleteEnvelope}
             handleUpdateEnvelope={handleUpdateEnvelope}
             editingEnvId={editingEnvId}
@@ -912,6 +1015,7 @@ const Dashboard = () => {
             transactionsLoading={transactionsLoading}
             envelopesLoading={envelopesLoading}
             incomeEnvelopesLoading={incomeEnvelopesLoading}
+            transfersLoading={transfersLoading}
             loadTransactions={loadTransactions}
             txPage={txPage}
             txPages={txPages}

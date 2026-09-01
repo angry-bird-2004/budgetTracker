@@ -3,6 +3,7 @@ import React from "react";
 const TransferFund = ({
   showTransferModal,
   setShowTransferModal,
+  closeTransferModal,
   transferType,
   setTransferType,
   fromEnvId,
@@ -51,7 +52,7 @@ const TransferFund = ({
       {showTransferModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6"
-          onClick={() => setShowTransferModal(false)}
+          onClick={closeTransferModal}
         >
           <div
             className="w-full max-w-2xl rounded-xl border border-emerald-900/50 bg-slate-950 p-4 shadow-[0_22px_50px_rgba(2,6,23,0.7)] sm:p-5"
@@ -63,7 +64,7 @@ const TransferFund = ({
               </h3>
               <button
                 type="button"
-                onClick={() => setShowTransferModal(false)}
+                onClick={closeTransferModal}
                 className="text-slate-400 hover:text-white text-xs font-bold"
               >
                 ✕ Close
