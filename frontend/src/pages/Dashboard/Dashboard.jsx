@@ -768,7 +768,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-950/80 text-slate-100 p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:p-6 sm:pb-8 w-full max-w-full overflow-x-hidden">
-      {isBusy && (
+      {/* {isBusy && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-6 py-5 shadow-xl">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-400" />
@@ -777,7 +777,7 @@ const Dashboard = () => {
             </p>
           </div>
         </div>
-      )}
+      )} */}
 
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-8 w-full">
         <Navbar />
