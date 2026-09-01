@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getPeriodRangeLabel } from "../../../utils/period";
 
@@ -12,8 +12,20 @@ const Header = ({
   period = "all",
 }) => {
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
+  const [isLoading, setIsLoading] = useState(false);
+  
   const symbol = currency === "PKR" ? "Rs " : "$";
   const periodLabel = getPeriodRangeLabel(period);
+
+  // Trigger brief loading transition when envelope selection changes
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 250); // 250ms smooth transition delay
+
+    return () => clearTimeout(timer);
+  }, [selectedEnvelopeId]);
 
   const isAll = selectedEnvelopeId === "all";
 
@@ -82,9 +94,16 @@ const Header = ({
         </div>
       </div>
 
-      {/* Metrics Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
+      {/* Metrics Cards Grid with Transition State */}
+      <div 
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 transition-opacity duration-200 ${
+          isLoading ? "opacity-40 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm relative">
+          {isLoading && (
+            <div className="absolute top-3 right-3 animate-spin h-3 w-3 border-2 border-emerald-500 border-t-transparent rounded-full" />
+          )}
           <p className="text-slate-400 text-sm font-medium">
             {isAll ? "Total Income" : "Envelope Pool"}
           </p>
