@@ -801,6 +801,7 @@ const Dashboard = () => {
             loading={loading}
             conversionRate={conversionRate}
             currency={currency}
+            period={period}
             setCurrency={setCurrency}
             incomeSource={incomeSource}
             setIncomeSource={setIncomeSource}
@@ -823,7 +824,7 @@ const Dashboard = () => {
           period={period}
           selectedEnvelopeId={selectedEnvelopeId}
           onSelectEnvelope={handleSelectEnvelope}
-          isLoading={isHeaderLoading || isInitialLoad || incomeEnvelopesLoading}
+          isLoading={isHeaderLoading || isInitialLoad || incomeEnvelopesLoading || transactionsLoading}
         />
 
         <Suspense fallback={<div />}>
