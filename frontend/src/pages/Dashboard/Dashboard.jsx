@@ -25,7 +25,11 @@ const Currency = lazy(() => import("./Currency/Currency"));
 import { useExchangeRate } from "../../Hooks/useExchangeRate";
 import { toBaseAmount, fromBaseAmount } from "../../utils/amounts";
 import { toLocalDateInput, fromLocalDateInput } from "../../utils/dates";
-import { DEFAULT_TRANSACTION_PAGE_SIZE, MAX_TRANSACTION_PAGE_SIZE, MIN_TRANSACTION_PAGE_SIZE } from "./Settings/constants";
+import {
+  DEFAULT_TRANSACTION_PAGE_SIZE,
+  MAX_TRANSACTION_PAGE_SIZE,
+  MIN_TRANSACTION_PAGE_SIZE,
+} from "./Settings/constants";
 import { usePeriod } from "../../context/PeriodContext";
 
 const Dashboard = () => {
@@ -44,6 +48,10 @@ const Dashboard = () => {
   const [transactionSort, setTransactionSort] = useState("newest");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Envelope selection & smooth loading states
+  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
+  const [isHeaderLoading, setIsHeaderLoading] = useState(false);
+
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [envelopesLoading, setEnvelopesLoading] = useState(false);
@@ -51,6 +59,26 @@ const Dashboard = () => {
 
   const [currency, setCurrency] = useState("PKR");
   const { conversionRate, loading } = useExchangeRate();
+
+  // Clean timeout reference for handling smooth envelope transition state
+  const envelopeTimeoutRef = useRef(null);
+
+  const handleSelectEnvelope = (id) => {
+    if (id === selectedEnvelopeId) return;
+    setIsHeaderLoading(true);
+    setSelectedEnvelopeId(id);
+
+    if (envelopeTimeoutRef.current) clearTimeout(envelopeTimeoutRef.current);
+    envelopeTimeoutRef.current = setTimeout(() => {
+      setIsHeaderLoading(false);
+    }, 250);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (envelopeTimeoutRef.current) clearTimeout(envelopeTimeoutRef.current);
+    };
+  }, []);
 
   const formatAmount = (val) => {
     const num = Number(val) || 0;
@@ -467,7 +495,11 @@ const Dashboard = () => {
       await loadData();
     } catch (error) {
       console.error("Error transferring funds between envelopes:", error);
-      alert(error.response?.data?.message || error.message || "Failed to transfer funds.");
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to transfer funds.",
+      );
       throw error;
     } finally {
       setIsSubmitting(false);
@@ -577,9 +609,7 @@ const Dashboard = () => {
           );
         }
 
-        calculatedTaxPercentage = taxPercentage
-          ? parseFloat(taxPercentage)
-          : 0;
+        calculatedTaxPercentage = taxPercentage ? parseFloat(taxPercentage) : 0;
 
         if (calculatedTaxPercentage > 0 && !taxAmount) {
           calculatedTaxAmount = (rawAmount * calculatedTaxPercentage) / 100;
@@ -688,10 +718,7 @@ const Dashboard = () => {
       if (editingTxId === id) {
         handleCancelEditTransaction();
       }
-      await Promise.all([
-        loadEnvelopes(),
-        loadTransactions(txPage, false),
-      ]);
+      await Promise.all([loadEnvelopes(), loadTransactions(txPage, false)]);
     } finally {
       setIsSubmitting(false);
     }
@@ -764,21 +791,8 @@ const Dashboard = () => {
   const totalExpense = txTotals.expense;
   const totalTax = txTotals.tax;
 
-  const isBusy = isSubmitting || isInitialLoad;
-
   return (
     <div className="min-h-screen bg-slate-950/80 text-slate-100 p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:p-6 sm:pb-8 w-full max-w-full overflow-x-hidden">
-      {/* {isBusy && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-6 py-5 shadow-xl">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-400" />
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-200">
-              {isInitialLoad ? "Loading data" : "Processing"}
-            </p>
-          </div>
-        </div>
-      )} */}
-
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-8 w-full">
         <Navbar />
 
@@ -807,6 +821,9 @@ const Dashboard = () => {
           formatAmount={formatAmount}
           incomeEnvelopes={incomeEnvelopes}
           period={period}
+          selectedEnvelopeId={selectedEnvelopeId}
+          onSelectEnvelope={handleSelectEnvelope}
+          isLoading={isHeaderLoading || isInitialLoad || incomeEnvelopesLoading}
         />
 
         <Suspense fallback={<div />}>

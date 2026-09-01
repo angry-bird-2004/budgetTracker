@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { getPeriodRangeLabel } from "../../../utils/period";
 
@@ -10,30 +10,19 @@ const Header = ({
   formatAmount,
   incomeEnvelopes = [],
   period = "all",
+  selectedEnvelopeId = "all",
+  onSelectEnvelope,
+  isLoading = false,
 }) => {
-  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
-  const [isLoading, setIsLoading] = useState(false);
-  
   const symbol = currency === "PKR" ? "Rs " : "$";
   const periodLabel = getPeriodRangeLabel(period);
 
-  // Trigger brief loading transition when envelope selection changes
-  useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 250); // 250ms smooth transition delay
-
-    return () => clearTimeout(timer);
-  }, [selectedEnvelopeId]);
-
   const isAll = selectedEnvelopeId === "all";
-
   const selectedEnv = incomeEnvelopes.find((e) => e._id === selectedEnvelopeId);
 
   const sumOfIncomeEnvelopes = incomeEnvelopes.reduce(
     (acc, env) => acc + Number(env.allocatedAmount || 0),
-    0
+    0,
   );
 
   const overallIncome = Math.max(totalIncome, sumOfIncomeEnvelopes);
@@ -64,7 +53,7 @@ const Header = ({
         <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 sm:pb-0">
           <button
             type="button"
-            onClick={() => setSelectedEnvelopeId("all")}
+            onClick={() => onSelectEnvelope("all")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 ${
               isAll
                 ? "bg-indigo-600 text-white shadow-md"
@@ -79,7 +68,7 @@ const Header = ({
               <button
                 key={env._id}
                 type="button"
-                onClick={() => setSelectedEnvelopeId(env._id)}
+                onClick={() => onSelectEnvelope(env._id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 truncate max-w-[150px] ${
                   isSelected
                     ? "bg-emerald-600 text-white shadow-md"
@@ -95,7 +84,7 @@ const Header = ({
       </div>
 
       {/* Metrics Cards Grid with Transition State */}
-      <div 
+      <div
         className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 transition-opacity duration-200 ${
           isLoading ? "opacity-40 pointer-events-none" : "opacity-100"
         }`}
@@ -165,38 +154,6 @@ const Header = ({
               ? `Income minus expenses (${periodLabel})`
               : "Pool minus envelope expenses (all-time)"}
           </p>
-        </div>
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-sm transition duration-200 hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-950/10">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Insights</p>
-            <h3 className="text-sm font-semibold text-slate-100">Open the full analytics dashboard</h3>
-          </div>
-          <Link
-            to="/analytics"
-            className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500"
-          >
-            View detailed analytics
-          </Link>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Income</p>
-            <p className="mt-2 text-lg font-bold text-emerald-400">{symbol}{formatAmount(Math.max(displayIncome, totalIncome))}</p>
-          </div>
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Spent</p>
-            <p className="mt-2 text-lg font-bold text-rose-400">{symbol}{formatAmount(displayExpense)}</p>
-          </div>
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Net</p>
-            <p className={`mt-2 text-lg font-bold ${displaySavings >= 0 ? "text-indigo-400" : "text-rose-500"}`}>
-              {symbol}{formatAmount(displaySavings)}
-            </p>
-          </div>
         </div>
       </div>
     </div>
