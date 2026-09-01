@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { fetchAllTransactions, fetchIncomeEnvelopes } from "../../../services/api";
 import { usePeriod } from "../../../context/PeriodContext";
-
+import Navbar from "../../../components/Navbar";
 const AnalyticsPage = () => {
   const { period, periodLabel } = usePeriod();
   const [analyticsState] = useState(() => {
@@ -165,12 +165,9 @@ const AnalyticsPage = () => {
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-300">
-            <Link to="/" className="text-emerald-400 hover:text-emerald-300 transition">← Back to dashboard</Link>
-          </div>
-        </div>
-
+        
+          <Navbar />
+        
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg shadow-slate-950/30">
           <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">Overview</p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">Financial Analytics</h1>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { getPeriodRangeLabel } from "../../../utils/period";
 
@@ -10,18 +10,19 @@ const Header = ({
   formatAmount,
   incomeEnvelopes = [],
   period = "all",
+  selectedEnvelopeId = "all",
+  onSelectEnvelope,
+  isLoading = false,
 }) => {
-  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
   const symbol = currency === "PKR" ? "Rs " : "$";
   const periodLabel = getPeriodRangeLabel(period);
 
   const isAll = selectedEnvelopeId === "all";
-
   const selectedEnv = incomeEnvelopes.find((e) => e._id === selectedEnvelopeId);
 
   const sumOfIncomeEnvelopes = incomeEnvelopes.reduce(
     (acc, env) => acc + Number(env.allocatedAmount || 0),
-    0
+    0,
   );
 
   const overallIncome = Math.max(totalIncome, sumOfIncomeEnvelopes);
@@ -48,11 +49,17 @@ const Header = ({
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             View Analytics For:
           </span>
+          {isLoading && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] text-indigo-400 font-medium animate-pulse">
+              <span className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
+              Loading...
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 sm:pb-0">
           <button
             type="button"
-            onClick={() => setSelectedEnvelopeId("all")}
+            onClick={() => onSelectEnvelope("all")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 ${
               isAll
                 ? "bg-indigo-600 text-white shadow-md"
@@ -67,7 +74,7 @@ const Header = ({
               <button
                 key={env._id}
                 type="button"
-                onClick={() => setSelectedEnvelopeId(env._id)}
+                onClick={() => onSelectEnvelope(env._id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 truncate max-w-[150px] ${
                   isSelected
                     ? "bg-emerald-600 text-white shadow-md"
@@ -82,9 +89,16 @@ const Header = ({
         </div>
       </div>
 
-      {/* Metrics Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm">
+      {/* Metrics Cards Grid with Transition State */}
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 transition-opacity duration-200 ${
+          isLoading ? "opacity-40 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 transition shadow-sm relative">
+          {isLoading && (
+            <div className="absolute top-3 right-3 animate-spin h-3 w-3 border-2 border-emerald-500 border-t-transparent rounded-full" />
+          )}
           <p className="text-slate-400 text-sm font-medium">
             {isAll ? "Total Income" : "Envelope Pool"}
           </p>
@@ -146,38 +160,6 @@ const Header = ({
               ? `Income minus expenses (${periodLabel})`
               : "Pool minus envelope expenses (all-time)"}
           </p>
-        </div>
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-sm transition duration-200 hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-950/10">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Insights</p>
-            <h3 className="text-sm font-semibold text-slate-100">Open the full analytics dashboard</h3>
-          </div>
-          <Link
-            to="/analytics"
-            className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500"
-          >
-            View detailed analytics
-          </Link>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Income</p>
-            <p className="mt-2 text-lg font-bold text-emerald-400">{symbol}{formatAmount(Math.max(displayIncome, totalIncome))}</p>
-          </div>
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Spent</p>
-            <p className="mt-2 text-lg font-bold text-rose-400">{symbol}{formatAmount(displayExpense)}</p>
-          </div>
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400">Net</p>
-            <p className={`mt-2 text-lg font-bold ${displaySavings >= 0 ? "text-indigo-400" : "text-rose-500"}`}>
-              {symbol}{formatAmount(displaySavings)}
-            </p>
-          </div>
         </div>
       </div>
     </div>

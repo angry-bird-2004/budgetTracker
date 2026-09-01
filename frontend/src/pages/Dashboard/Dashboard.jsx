@@ -14,6 +14,9 @@ import {
   updateIncomeEnvelope,
   removeIncomeEnvelope,
   transferFunds,
+  fetchTransfers,
+  removeTransfer,
+  updateTransfer,
   fetchSettings,
 } from "../../services/api";
 import Navbar from "../../components/Navbar";
@@ -25,32 +28,63 @@ const Currency = lazy(() => import("./Currency/Currency"));
 import { useExchangeRate } from "../../Hooks/useExchangeRate";
 import { toBaseAmount, fromBaseAmount } from "../../utils/amounts";
 import { toLocalDateInput, fromLocalDateInput } from "../../utils/dates";
-import { DEFAULT_TRANSACTION_PAGE_SIZE, MAX_TRANSACTION_PAGE_SIZE, MIN_TRANSACTION_PAGE_SIZE } from "./Settings/constants";
+import {
+  DEFAULT_TRANSACTION_PAGE_SIZE,
+  MAX_TRANSACTION_PAGE_SIZE,
+  MIN_TRANSACTION_PAGE_SIZE,
+} from "./Settings/constants";
 import { usePeriod } from "../../context/PeriodContext";
 
 const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
   const [incomeEnvelopes, setIncomeEnvelopes] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [transfers, setTransfers] = useState([]);
   const [txPage, setTxPage] = useState(1);
   const [txPages, setTxPages] = useState(1);
   const [txTotal, setTxTotal] = useState(0);
   const [txLimit, setTxLimit] = useState(DEFAULT_TRANSACTION_PAGE_SIZE);
   const [settingsReady, setSettingsReady] = useState(false);
   const [txTotals, setTxTotals] = useState({ income: 0, expense: 0, tax: 0 });
+  const [editingTransferId, setEditingTransferId] = useState(null);
   const { period, setPeriod } = usePeriod();
   const [transactionSearch, setTransactionSearch] = useState("");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
   const [transactionSort, setTransactionSort] = useState("newest");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Envelope selection & smooth loading states
+  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
+  const [isHeaderLoading, setIsHeaderLoading] = useState(false);
+
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [envelopesLoading, setEnvelopesLoading] = useState(false);
   const [incomeEnvelopesLoading, setIncomeEnvelopesLoading] = useState(false);
+  const [transfersLoading, setTransfersLoading] = useState(false);
 
   const [currency, setCurrency] = useState("PKR");
   const { conversionRate, loading } = useExchangeRate();
+
+  // Clean timeout reference for handling smooth envelope transition state
+  const envelopeTimeoutRef = useRef(null);
+
+  const handleSelectEnvelope = (id) => {
+    if (id === selectedEnvelopeId) return;
+    setIsHeaderLoading(true);
+    setSelectedEnvelopeId(id);
+
+    if (envelopeTimeoutRef.current) clearTimeout(envelopeTimeoutRef.current);
+    envelopeTimeoutRef.current = setTimeout(() => {
+      setIsHeaderLoading(false);
+    }, 250);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (envelopeTimeoutRef.current) clearTimeout(envelopeTimeoutRef.current);
+    };
+  }, []);
 
   const formatAmount = (val) => {
     const num = Number(val) || 0;
@@ -152,6 +186,18 @@ const Dashboard = () => {
     [period, txLimit, debouncedSearch, transactionTypeFilter, transactionSort],
   );
 
+  const loadTransfers = React.useCallback(async () => {
+    setTransfersLoading(true);
+    try {
+      const res = await fetchTransfers(period);
+      setTransfers(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.warn("Failed to load transfer history:", err);
+    } finally {
+      setTransfersLoading(false);
+    }
+  }, [period]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -209,15 +255,20 @@ const Dashboard = () => {
 
   const loadData = React.useCallback(async () => {
     try {
-      await Promise.all([loadEnvelopes(), loadTransactions(1, false)]);
+      await Promise.all([
+        loadEnvelopes(),
+        loadTransactions(1, false),
+        loadTransfers(),
+      ]);
     } finally {
       setIsInitialLoad(false);
     }
-  }, [loadEnvelopes, loadTransactions]);
+  }, [loadEnvelopes, loadTransactions, loadTransfers]);
 
   useEffect(() => {
     void loadEnvelopes();
-  }, [loadEnvelopes]);
+    void loadTransfers();
+  }, [loadEnvelopes, loadTransfers]);
 
   useEffect(() => {
     if (!settingsReady) return;
@@ -225,7 +276,7 @@ const Dashboard = () => {
     let isMounted = true;
 
     const fetchPage = async () => {
-      await loadTransactions(1, false);
+      await Promise.all([loadTransactions(1, false), loadTransfers()]);
       if (isMounted) setIsInitialLoad(false);
     };
 
@@ -234,7 +285,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [loadTransactions, settingsReady]);
+  }, [loadTransactions, loadTransfers, settingsReady]);
 
   useEffect(() => {
     const timer = analyticsTimer.current;
@@ -467,10 +518,78 @@ const Dashboard = () => {
       await loadData();
     } catch (error) {
       console.error("Error transferring funds between envelopes:", error);
-      alert(error.response?.data?.message || error.message || "Failed to transfer funds.");
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to transfer funds.",
+      );
       throw error;
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteTransfer = async (transferId) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await removeTransfer(transferId);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to delete transfer:", error);
+      alert(error.response?.data?.message || "Failed to delete transfer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateTransfer = async (transferId, updateData) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const baseTransferAmount = toBaseAmount(
+        Number(updateData.amount),
+        currency,
+        conversionRate,
+      );
+
+      await updateTransfer(transferId, {
+        ...updateData,
+        amount: baseTransferAmount,
+      });
+
+      setEditingTransferId(null);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to update transfer:", error);
+      alert(error.response?.data?.message || "Failed to update transfer.");
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartEditTransfer = (transfer) => {
+    const sourceList = transfer.type === "expense" ? envelopes : incomeEnvelopes;
+    const fromEnvIdValue = transfer.fromEnvelopeId || transfer.fromId || "";
+    const toEnvIdValue = transfer.toEnvelopeId || transfer.toId || "";
+    const displayedAmount = fromBaseAmount(
+      Number(transfer.amount || 0),
+      currency,
+      conversionRate,
+    );
+
+    setTransferType(transfer.type === "income" ? "income" : "expense");
+    setFromEnvId(fromEnvIdValue);
+    setToEnvId(toEnvIdValue);
+    setTransferAmount(displayedAmount > 0 ? displayedAmount.toFixed(2) : "0");
+    setEditingTransferId(transfer._id);
+    setShowTransferModal(true);
+
+    if (!sourceList.length) {
+      setTimeout(() => {
+        alert("Transfer cannot be edited right now because the envelope list is still loading.");
+      }, 50);
     }
   };
 
@@ -577,9 +696,7 @@ const Dashboard = () => {
           );
         }
 
-        calculatedTaxPercentage = taxPercentage
-          ? parseFloat(taxPercentage)
-          : 0;
+        calculatedTaxPercentage = taxPercentage ? parseFloat(taxPercentage) : 0;
 
         if (calculatedTaxPercentage > 0 && !taxAmount) {
           calculatedTaxAmount = (rawAmount * calculatedTaxPercentage) / 100;
@@ -691,6 +808,7 @@ const Dashboard = () => {
       await Promise.all([
         loadEnvelopes(),
         loadTransactions(txPage, false),
+        loadTransfers(),
       ]);
     } finally {
       setIsSubmitting(false);
@@ -739,7 +857,11 @@ const Dashboard = () => {
 
       const importedCount = createdCount + updatedCount;
       if (importedCount > 0) {
-        await Promise.all([loadEnvelopes(), loadTransactions(1, false)]);
+        await Promise.all([
+          loadEnvelopes(),
+          loadTransactions(1, false),
+          loadTransfers(),
+        ]);
         alert(
           `${importedCount} transaction(s) imported successfully (${createdCount} created, ${updatedCount} updated).`,
         );
@@ -764,21 +886,8 @@ const Dashboard = () => {
   const totalExpense = txTotals.expense;
   const totalTax = txTotals.tax;
 
-  const isBusy = isSubmitting || isInitialLoad;
-
   return (
     <div className="min-h-screen bg-slate-950/80 text-slate-100 p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:p-6 sm:pb-8 w-full max-w-full overflow-x-hidden">
-      {isBusy && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-6 py-5 shadow-xl">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-400" />
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-200">
-              {isInitialLoad ? "Loading data" : "Processing"}
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-8 w-full">
         <Navbar />
 
@@ -787,6 +896,7 @@ const Dashboard = () => {
             loading={loading}
             conversionRate={conversionRate}
             currency={currency}
+            period={period}
             setCurrency={setCurrency}
             incomeSource={incomeSource}
             setIncomeSource={setIncomeSource}
@@ -807,6 +917,14 @@ const Dashboard = () => {
           formatAmount={formatAmount}
           incomeEnvelopes={incomeEnvelopes}
           period={period}
+          selectedEnvelopeId={selectedEnvelopeId}
+          onSelectEnvelope={handleSelectEnvelope}
+          isLoading={
+            isHeaderLoading ||
+            isInitialLoad ||
+            incomeEnvelopesLoading ||
+            transactionsLoading
+          }
         />
 
         <Suspense fallback={<div />}>
@@ -830,7 +948,10 @@ const Dashboard = () => {
             setEditingIncomeEnvId={setEditingIncomeEnvId}
             incomeFormRef={incomeFormRef}
             handleTransferBetweenEnvelopes={handleTransferBetweenEnvelopes}
+            handleDeleteTransfer={handleDeleteTransfer}
+            handleUpdateTransfer={handleUpdateTransfer}
             transactions={transactions}
+            transfers={transfers}
             handleDeleteEnvelope={handleDeleteEnvelope}
             handleUpdateEnvelope={handleUpdateEnvelope}
             editingEnvId={editingEnvId}
@@ -894,6 +1015,7 @@ const Dashboard = () => {
             transactionsLoading={transactionsLoading}
             envelopesLoading={envelopesLoading}
             incomeEnvelopesLoading={incomeEnvelopesLoading}
+            transfersLoading={transfersLoading}
             loadTransactions={loadTransactions}
             txPage={txPage}
             txPages={txPages}

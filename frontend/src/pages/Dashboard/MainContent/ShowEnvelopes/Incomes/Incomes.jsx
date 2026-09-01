@@ -72,10 +72,12 @@ const Incomes = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {incomeEnvelopes.map((inc) => {
             const spentFromInc = Number(inc.consumed || 0);
+            const computedCurrentBalance =
+              Number(inc.currentBalance ?? inc.allocatedAmount ?? 0);
             const remainingInc =
               inc.currentBalance != null
                 ? Number(inc.currentBalance)
-                : Number(inc.allocatedAmount || 0) - spentFromInc;
+                : Number(inc.allocatedAmount || 0) + Number(inc.income || 0) - spentFromInc;
             const isOpen = selectedIncomeEnvId === inc._id;
 
             return (
@@ -96,33 +98,35 @@ const Incomes = ({
                     </p>
                     <p className="text-[11px] sm:text-xs text-emerald-400 truncate">
                       Balance: {symbol}
-                      {formatAmount(inc.currentBalance)}
+                      {formatAmount(computedCurrentBalance)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleUpdateIncomeEnvelope(inc._id);
-                      }}
-                      className="text-xs text-emerald-400 hover:underline px-1 py-0.5 disabled:opacity-50"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteIncomeEnvelope(inc._id);
-                      }}
-                      className="text-xs text-rose-400 hover:underline px-1 py-0.5 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {handleUpdateIncomeEnvelope && handleDeleteIncomeEnvelope && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUpdateIncomeEnvelope(inc._id);
+                        }}
+                        className="text-xs text-emerald-400 hover:underline px-1 py-0.5 disabled:opacity-50"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteIncomeEnvelope(inc._id);
+                        }}
+                        className="text-xs text-rose-400 hover:underline px-1 py-0.5 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {isOpen && (
@@ -133,16 +137,12 @@ const Incomes = ({
                       {formatAmount(inc.allocatedAmount)}
                     </p>
                     <p className="truncate">
-                      <strong className="text-slate-400">
-                        Consumed:
-                      </strong>{" "}
+                      <strong className="text-slate-400">Consumed:</strong>{" "}
                       {symbol}
                       {formatAmount(spentFromInc)}
                     </p>
                     <p className="truncate">
-                      <strong className="text-slate-400">
-                        Remaining:
-                      </strong>{" "}
+                      <strong className="text-slate-400">Remaining:</strong>{" "}
                       {symbol}
                       {formatAmount(remainingInc)}
                     </p>
@@ -205,4 +205,4 @@ const Incomes = ({
   );
 };
 
-export default Incomes;
+export default React.memo(Incomes);
