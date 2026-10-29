@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { fetchAllTransactions, fetchIncomeEnvelopes } from "../../../services/api";
-import { usePeriod } from "../../../context/PeriodContext";
+import { usePeriod } from "../../../context/usePeriod";
 import Navbar from "../../../components/Navbar";
 const AnalyticsPage = () => {
   const { period, periodLabel } = usePeriod();
@@ -50,13 +50,20 @@ const AnalyticsPage = () => {
   } = analyticsState;
 
   const [fetchedTransactions, setFetchedTransactions] = useState([]);
+  const [chartTransactions, setChartTransactions] = useState([]);
   const [fetchedIncomeEnvelopes, setFetchedIncomeEnvelopes] = useState([]);
   const [fetchedTotals, setFetchedTotals] = useState(null);
 
   const effectiveTransactions = fetchedTransactions;
-  const effectiveIncomeEnvelopes = fetchedIncomeEnvelopes.length > 0
-    ? fetchedIncomeEnvelopes
-    : (Array.isArray(incomeEnvelopes) ? incomeEnvelopes : []);
+  const effectiveIncomeEnvelopes = useMemo(
+    () =>
+      fetchedIncomeEnvelopes.length > 0
+        ? fetchedIncomeEnvelopes
+        : Array.isArray(incomeEnvelopes)
+          ? incomeEnvelopes
+          : [],
+    [fetchedIncomeEnvelopes, incomeEnvelopes],
+  );
 
   const symbol = currency === "PKR" ? "Rs " : "$";
 
@@ -70,14 +77,14 @@ const AnalyticsPage = () => {
   };
 
   const trendData = useMemo(() => {
-    if (!Array.isArray(effectiveTransactions) || effectiveTransactions.length === 0) return [];
+    if (!Array.isArray(chartTransactions) || chartTransactions.length === 0) return [];
     return Array.from({ length: 6 }, (_, idx) => {
       const now = new Date();
       const end = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
       const start = new Date(end.getFullYear(), end.getMonth(), 1);
       const monthLabel = end.toLocaleDateString("en-US", { month: "short" });
 
-      const income = effectiveTransactions
+      const income = chartTransactions
         .filter((tx) => {
           if (tx.type !== "income") return false;
           if (!tx.date) return false;
@@ -86,7 +93,7 @@ const AnalyticsPage = () => {
         })
         .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
-      const expense = effectiveTransactions
+      const expense = chartTransactions
         .filter((tx) => {
           if (tx.type !== "expense") return false;
           if (!tx.date) return false;
@@ -97,7 +104,7 @@ const AnalyticsPage = () => {
 
       return { monthLabel, income, expense };
     });
-  }, [effectiveTransactions]);
+  }, [chartTransactions]);
 
   // If compact summary provided totals, use them; otherwise compute from transactions
   const computedTotalIncome = useMemo(() => {
@@ -142,12 +149,23 @@ const AnalyticsPage = () => {
 
     (async () => {
       try {
-        const [txResult, incomeRes] = await Promise.all([
+        const chartEnd = new Date();
+        const chartStart = new Date(
+          chartEnd.getFullYear(),
+          chartEnd.getMonth() - 5,
+          1,
+        );
+        const [txResult, chartResult, incomeRes] = await Promise.all([
           fetchAllTransactions(period),
+          fetchAllTransactions("all", {
+            startDate: chartStart.toISOString(),
+            endDate: chartEnd.toISOString(),
+          }),
           fetchIncomeEnvelopes(),
         ]);
         if (cancelled) return;
         setFetchedTransactions(txResult.transactions);
+        setChartTransactions(chartResult.transactions);
         setFetchedTotals(txResult.totals);
         if (Array.isArray(incomeRes.data)) {
           setFetchedIncomeEnvelopes(incomeRes.data);

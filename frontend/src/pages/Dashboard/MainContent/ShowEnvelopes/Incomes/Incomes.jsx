@@ -14,42 +14,44 @@ const Incomes = ({
   incomeEnvelopesLoading,
   period = "all",
 }) => {
-  const [linkedTxs, setLinkedTxs] = useState([]);
-  const [linkedLoading, setLinkedLoading] = useState(false);
-  const [linkedError, setLinkedError] = useState("");
+  const [linkedResult, setLinkedResult] = useState(null);
+  const linkedKey = JSON.stringify([selectedIncomeEnvId, period]);
+  const currentLinkedResult =
+    linkedResult?.key === linkedKey ? linkedResult : null;
+  const linkedTxs = currentLinkedResult?.transactions || [];
+  const linkedLoading = Boolean(selectedIncomeEnvId && !currentLinkedResult);
+  const linkedError = currentLinkedResult?.error || "";
   const periodLabel = getPeriodRangeLabel(period);
 
   useEffect(() => {
     if (!selectedIncomeEnvId) {
-      setLinkedTxs([]);
-      setLinkedError("");
       return undefined;
     }
 
     let cancelled = false;
-    setLinkedLoading(true);
-    setLinkedError("");
 
     fetchAllTransactions(period, {
       incomeSource: selectedIncomeEnvId,
     })
       .then(({ transactions }) => {
-        if (!cancelled) setLinkedTxs(transactions);
+        if (!cancelled) {
+          setLinkedResult({ key: linkedKey, transactions, error: "" });
+        }
       })
       .catch(() => {
         if (!cancelled) {
-          setLinkedTxs([]);
-          setLinkedError("Could not load transactions for this envelope.");
+          setLinkedResult({
+            key: linkedKey,
+            transactions: [],
+            error: "Could not load transactions for this envelope.",
+          });
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLinkedLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedIncomeEnvId, period]);
+  }, [selectedIncomeEnvId, period, linkedKey]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">

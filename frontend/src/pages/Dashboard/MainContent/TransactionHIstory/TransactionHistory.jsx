@@ -456,7 +456,7 @@ const TransactionHistory = ({
 
               return (
                 <div
-                  key={tx._id || Math.random()}
+                  key={tx._id}
                   className="bg-slate-950 border border-slate-800/80 rounded-lg p-2.5 sm:p-4 space-y-2.5 w-full min-w-0 transition hover:border-emerald-500/30"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">

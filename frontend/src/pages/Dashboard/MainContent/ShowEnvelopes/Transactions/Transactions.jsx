@@ -14,42 +14,46 @@ const Transactions = ({
   envelopesLoading,
   period = "all",
 }) => {
-  const [linkedTxs, setLinkedTxs] = useState([]);
-  const [linkedLoading, setLinkedLoading] = useState(false);
-  const [linkedError, setLinkedError] = useState("");
+  const [linkedResult, setLinkedResult] = useState(null);
+  const linkedKey = JSON.stringify([selectedEnvelopeId, period]);
+  const currentLinkedResult =
+    linkedResult?.key === linkedKey ? linkedResult : null;
+  const linkedTxs = currentLinkedResult?.transactions || [];
+  const linkedLoading = Boolean(
+    selectedEnvelopeId && selectedEnvelopeId !== "all" && !currentLinkedResult,
+  );
+  const linkedError = currentLinkedResult?.error || "";
   const periodLabel = getPeriodRangeLabel(period);
 
   useEffect(() => {
     if (!selectedEnvelopeId || selectedEnvelopeId === "all") {
-      setLinkedTxs([]);
-      setLinkedError("");
       return undefined;
     }
 
     let cancelled = false;
-    setLinkedLoading(true);
-    setLinkedError("");
 
     fetchAllTransactions(period, {
       envelopeId: selectedEnvelopeId,
     })
       .then(({ transactions }) => {
-        if (!cancelled) setLinkedTxs(transactions);
+        if (!cancelled) {
+          setLinkedResult({ key: linkedKey, transactions, error: "" });
+        }
       })
       .catch(() => {
         if (!cancelled) {
-          setLinkedTxs([]);
-          setLinkedError("Could not load transactions for this envelope.");
+          setLinkedResult({
+            key: linkedKey,
+            transactions: [],
+            error: "Could not load transactions for this envelope.",
+          });
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLinkedLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedEnvelopeId, period]);
+  }, [selectedEnvelopeId, period, linkedKey]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm w-full overflow-hidden">
@@ -86,16 +90,20 @@ const Transactions = ({
             return (
               <div
                 key={env._id}
-                onClick={() =>
-                  !isSubmitting &&
-                  setSelectedEnvelopeId(isOpen ? "all" : env._id)
-                }
-                className={`bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg cursor-pointer transition min-w-0 ${
+                className={`bg-slate-950 border border-slate-800/80 p-3 sm:p-4 rounded-lg transition min-w-0 ${
                   isOpen ? "ring-1 ring-emerald-500" : ""
-                } ${isSubmitting ? "opacity-70 pointer-events-none" : ""}`}
+                } ${isSubmitting ? "opacity-70" : ""}`}
               >
                 <div className="flex justify-between items-center gap-2">
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    aria-expanded={isOpen}
+                    onClick={() =>
+                      setSelectedEnvelopeId(isOpen ? "all" : env._id)
+                    }
+                    className="min-w-0 flex-1 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  >
                     <p className="text-xs sm:text-sm font-semibold text-slate-200 truncate">
                       {env.name}
                     </p>
@@ -103,7 +111,7 @@ const Transactions = ({
                       Available: {symbol}
                       {formatAmount(computedCurrentBalance)}
                     </p>
-                  </div>
+                  </button>
                   {handleUpdateEnvelope && handleDeleteEnvelope && (
                     <div className="flex items-center gap-2 shrink-0">
                       <button

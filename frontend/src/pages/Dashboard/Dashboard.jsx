@@ -33,7 +33,7 @@ import {
   MAX_TRANSACTION_PAGE_SIZE,
   MIN_TRANSACTION_PAGE_SIZE,
 } from "./Settings/constants";
-import { usePeriod } from "../../context/PeriodContext";
+import { usePeriod } from "../../context/usePeriod";
 
 const Dashboard = () => {
   const [envelopes, setEnvelopes] = useState([]);
@@ -46,12 +46,12 @@ const Dashboard = () => {
   const [txLimit, setTxLimit] = useState(DEFAULT_TRANSACTION_PAGE_SIZE);
   const [settingsReady, setSettingsReady] = useState(false);
   const [txTotals, setTxTotals] = useState({ income: 0, expense: 0, tax: 0 });
-  const [editingTransferId, setEditingTransferId] = useState(null);
   const { period, setPeriod } = usePeriod();
   const [transactionSearch, setTransactionSearch] = useState("");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
   const [transactionSort, setTransactionSort] = useState("newest");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeEntryForm, setActiveEntryForm] = useState("transaction");
 
   // Envelope selection & smooth loading states
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState("all");
@@ -266,6 +266,8 @@ const Dashboard = () => {
   }, [loadEnvelopes, loadTransactions, loadTransfers]);
 
   useEffect(() => {
+    // Load server data on mount; the callback owns the loading state and request errors.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadEnvelopes();
     void loadTransfers();
   }, [loadEnvelopes, loadTransfers]);
@@ -276,7 +278,7 @@ const Dashboard = () => {
     let isMounted = true;
 
     const fetchPage = async () => {
-      await Promise.all([loadTransactions(1, false), loadTransfers()]);
+      await loadTransactions(1, false);
       if (isMounted) setIsInitialLoad(false);
     };
 
@@ -285,7 +287,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [loadTransactions, loadTransfers, settingsReady]);
+  }, [loadTransactions, settingsReady]);
 
   useEffect(() => {
     const timer = analyticsTimer.current;
@@ -369,6 +371,7 @@ const Dashboard = () => {
   const handleUpdateEnvelope = (id) => {
     const envelopeToEdit = envelopes.find((env) => env._id === id);
     if (envelopeToEdit) {
+      setActiveEntryForm("expense-envelope");
       setEditingEnvId(envelopeToEdit._id);
       setEnvName(envelopeToEdit.name);
       const displayedVal = fromBaseAmount(
@@ -452,6 +455,7 @@ const Dashboard = () => {
   const handleUpdateIncomeEnvelope = (id) => {
     const incomeEnvToEdit = incomeEnvelopes.find((env) => env._id === id);
     if (incomeEnvToEdit) {
+      setActiveEntryForm("income-envelope");
       setEditingIncomeEnvId(incomeEnvToEdit._id);
       setIncomeEnvName(incomeEnvToEdit.name);
       const displayedVal = fromBaseAmount(
@@ -558,7 +562,6 @@ const Dashboard = () => {
         amount: baseTransferAmount,
       });
 
-      setEditingTransferId(null);
       await loadData();
     } catch (error) {
       console.error("Failed to update transfer:", error);
@@ -566,30 +569,6 @@ const Dashboard = () => {
       throw error;
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleStartEditTransfer = (transfer) => {
-    const sourceList = transfer.type === "expense" ? envelopes : incomeEnvelopes;
-    const fromEnvIdValue = transfer.fromEnvelopeId || transfer.fromId || "";
-    const toEnvIdValue = transfer.toEnvelopeId || transfer.toId || "";
-    const displayedAmount = fromBaseAmount(
-      Number(transfer.amount || 0),
-      currency,
-      conversionRate,
-    );
-
-    setTransferType(transfer.type === "income" ? "income" : "expense");
-    setFromEnvId(fromEnvIdValue);
-    setToEnvId(toEnvIdValue);
-    setTransferAmount(displayedAmount > 0 ? displayedAmount.toFixed(2) : "0");
-    setEditingTransferId(transfer._id);
-    setShowTransferModal(true);
-
-    if (!sourceList.length) {
-      setTimeout(() => {
-        alert("Transfer cannot be edited right now because the envelope list is still loading.");
-      }, 50);
     }
   };
 
@@ -626,6 +605,7 @@ const Dashboard = () => {
 
     setEditingTxId(tx._id);
     setEditingTxKind(isFill ? "fill" : "transaction");
+    setActiveEntryForm(isFill ? "fill" : "transaction");
 
     if (isFill) {
       resetExpenseForm();
@@ -929,6 +909,8 @@ const Dashboard = () => {
 
         <Suspense fallback={<div />}>
           <Maincontent
+            activeEntryForm={activeEntryForm}
+            setActiveEntryForm={setActiveEntryForm}
             handleUpdateTransaction={handleUpdateTransaction}
             handleCreateEnvelope={handleCreateEnvelope}
             envName={envName}

@@ -100,6 +100,8 @@ const Maincontent = ({
   envelopesLoading,
   incomeEnvelopesLoading,
   transfersLoading = false,
+  activeEntryForm,
+  setActiveEntryForm,
 }) => {
   const [expandedTxId, setExpandedTxId] = useState(null);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState(null);
@@ -113,6 +115,12 @@ const Maincontent = ({
   const [editingTransferId, setEditingTransferId] = useState(null);
 
   const symbol = currency === "PKR" ? "Rs " : "$";
+  const entryFormOptions = [
+    { value: "transaction", label: "New Transaction" },
+    { value: "fill", label: "Fill Amount" },
+    { value: "income-envelope", label: "Create Income Envelope" },
+    { value: "expense-envelope", label: "Create Expense Envelope" },
+  ];
 
   const resetTransferForm = () => {
     setTransferType("expense");
@@ -220,7 +228,31 @@ const Maincontent = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-full overflow-x-hidden">
       <div className="space-y-6 lg:col-span-1 w-full min-w-0">
-        <CreateTransaction
+        <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-sm">
+          <label
+            htmlFor="dashboard-entry-form"
+            className="block text-xs font-semibold uppercase tracking-wide text-slate-300 mb-2"
+          >
+            What would you like to add?
+          </label>
+          <select
+            id="dashboard-entry-form"
+            value={activeEntryForm}
+            onChange={(event) => setActiveEntryForm(event.target.value)}
+            className="w-full min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-3 py-3 sm:py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+          >
+            {entryFormOptions.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 mt-2">
+            Choose an action to open its form.
+          </p>
+        </section>
+
+        {activeEntryForm === "transaction" && <CreateTransaction
           transactionFormRef={transactionFormRef}
           editingTxId={editingTxKind === "fill" ? null : editingTxId}
           handleCancelEditTransaction={handleCancelEditTransaction}
@@ -252,9 +284,9 @@ const Maincontent = ({
           taxApplication={taxApplication}
           setTaxApplication={setTaxApplication}
           isSubmitting={isSubmitting}
-        />
+        />}
 
-        <FillAccounts
+        {activeEntryForm === "fill" && <FillAccounts
           fillAccountsFormRef={fillAccountsFormRef}
           editingTxId={editingTxKind === "fill" ? editingTxId : null}
           handleCancelEditTransaction={handleCancelEditTransaction}
@@ -275,9 +307,9 @@ const Maincontent = ({
           fillDate={fillDate}
           setFillDate={setFillDate}
           isSubmitting={isSubmitting}
-        />
+        />}
 
-        <CreateExpenseEnvelope
+        {activeEntryForm === "expense-envelope" && <CreateExpenseEnvelope
           envelopeFormRef={envelopeFormRef}
           editingEnvId={editingEnvId}
           handleCreateEnvelope={handleCreateEnvelope}
@@ -287,9 +319,9 @@ const Maincontent = ({
           setEnvAmount={setEnvAmount}
           symbol={symbol}
           isSubmitting={isSubmitting}
-        />
+        />}
 
-        <CreateIncomeEnvelope
+        {activeEntryForm === "income-envelope" && <CreateIncomeEnvelope
           incomeFormRef={incomeFormRef}
           editingIncomeEnvId={editingIncomeEnvId}
           handleCreateIncomeEnvelope={handleCreateIncomeEnvelope}
@@ -299,7 +331,7 @@ const Maincontent = ({
           setIncomeEnvAmount={setIncomeEnvAmount}
           symbol={symbol}
           isSubmitting={isSubmitting}
-        />
+        />}
       </div>
 
       <div className="space-y-6 lg:col-span-2 w-full min-w-0">

@@ -92,7 +92,7 @@ const TransferHistory = ({
 
             return (
               <div
-                key={tx._id || Math.random()}
+                key={tx._id}
                 className="bg-slate-950 border border-slate-800/80 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition hover:border-emerald-500/30 min-w-0"
               >
                 <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
