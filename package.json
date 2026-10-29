@@ -1,0 +1,11 @@
+{
+  "name": "budget-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix frontend run dev",
+    "dev:mobile": "npm --prefix mobile start"
+  }
+}
