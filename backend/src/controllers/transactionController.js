@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Transaction = require("../models/Transaction");
 const { getPeriodRange } = require("../utils/periodRange");
+const { parseExplicitDateRange } = require("../utils/explicitDateRange");
 const { taxAmountExpr } = require("../utils/taxAmountExpr");
 
 const toObjectId = (value) => {
@@ -28,13 +29,20 @@ const getTransactions = async (req, res) => {
   try {
     const {
       period, year, month, page = 1, limit = 50, search, type, sort, tzOffset,
+      startDate, endDate,
       envelopeId, incomeSource,
     } = req.query;
     let query = { userId: req.user._id };
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
     const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
 
-    const range = getPeriodRange({ period, year, month, tzOffset });
+    const explicitRange = parseExplicitDateRange(startDate, endDate);
+    if (explicitRange.error) {
+      return res.status(400).json({ message: explicitRange.error });
+    }
+
+    const range =
+      explicitRange.range || getPeriodRange({ period, year, month, tzOffset });
     if (range) {
       query.date = { $gte: range.start, $lte: range.end };
     }

@@ -90,7 +90,7 @@ test('updateTransferFunds does not re-transfer when the edit is a no-op', async 
   assert.equal(res.payload.transfer._id, 't1');
 });
 
-test('reversing a transfer with the same amount updates only the record, not the balances', async () => {
+test('reversing a same-amount transfer applies the net balance changes', async () => {
   const transfer = {
     _id: 't2',
     userId: 'u1',
@@ -106,24 +106,22 @@ test('reversing a transfer with the same amount updates only the record, not the
   };
 
   const updates = [];
-  Envelope.findOne = async ({ _id }) => {
+  Envelope.findOne = ({ _id }) => {
     if (String(_id) === 'a') {
-      return {
+      return makeLeanDoc({
         _id: 'a',
         userId: 'u1',
         name: 'A',
         allocatedAmount: 500,
-        lean: async () => ({ _id: 'a', userId: 'u1', name: 'A', allocatedAmount: 500 }),
-      };
+      });
     }
     if (String(_id) === 'b') {
-      return {
+      return makeLeanDoc({
         _id: 'b',
         userId: 'u1',
         name: 'B',
         allocatedAmount: 1500,
-        lean: async () => ({ _id: 'b', userId: 'u1', name: 'B', allocatedAmount: 1500 }),
-      };
+      });
     }
     return null;
   };
@@ -161,7 +159,16 @@ test('reversing a transfer with the same amount updates only the record, not the
 
   await controller.updateTransferFunds(req, res);
 
-  assert.deepEqual(updates, []);
+  assert.deepEqual(
+    updates.map(({ query, update }) => ({
+      id: query._id,
+      delta: update.$inc.allocatedAmount,
+    })),
+    [
+      { id: 'a', delta: 1000 },
+      { id: 'b', delta: -1000 },
+    ],
+  );
   assert.equal(res.code, 200);
   assert.equal(res.payload.message, 'Transfer updated');
   assert.equal(res.payload.transfer.fromEnvelopeId, 'b');

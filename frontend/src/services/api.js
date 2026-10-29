@@ -22,7 +22,7 @@ const loadCachedToken = () => {
     const parsed = JSON.parse(userInfo);
     cachedToken = parsed?.token || null;
     return cachedToken;
-  } catch (e) {
+  } catch {
     localStorage.removeItem("userInfo");
     cachedToken = null;
     return null;
@@ -46,7 +46,7 @@ API.interceptors.request.use((config) => {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
-  } catch (err) {
+  } catch {
     // fall back silently
   }
   return config;
@@ -65,7 +65,10 @@ export const transferFunds = (data) => API.post("/envelopes/transfer", data);
 
 // Transfer History service
 export const fetchTransfers = (period = "all") => {
-  const params = new URLSearchParams({ period: period || "all" });
+  const params = new URLSearchParams({
+    period: period || "all",
+    tzOffset: String(new Date().getTimezoneOffset()),
+  });
   return API.get(`/envelopes/transfers?${params.toString()}`);
 };
 
@@ -102,6 +105,8 @@ export const fetchTransactions = (
   if (extras.sort) params.set("sort", extras.sort);
   if (extras.envelopeId) params.set("envelopeId", extras.envelopeId);
   if (extras.incomeSource) params.set("incomeSource", extras.incomeSource);
+  if (extras.startDate) params.set("startDate", extras.startDate);
+  if (extras.endDate) params.set("endDate", extras.endDate);
   params.set("tzOffset", String(new Date().getTimezoneOffset()));
   return API.get(`/transactions?${params.toString()}`);
 };

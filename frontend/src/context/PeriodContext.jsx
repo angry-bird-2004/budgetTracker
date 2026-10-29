@@ -1,7 +1,6 @@
-import React, { useCallback, useContext, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { PeriodContext } from "./periodContext";
 import {
-  DEFAULT_PERIOD,
   getPeriodRangeLabel,
   isValidPeriod,
   readStoredPeriod,
@@ -31,16 +30,4 @@ export const PeriodProvider = ({ children }) => {
   return (
     <PeriodContext.Provider value={value}>{children}</PeriodContext.Provider>
   );
-};
-
-export const usePeriod = () => {
-  const context = useContext(PeriodContext);
-  if (!context) {
-    return {
-      period: DEFAULT_PERIOD,
-      setPeriod: () => {},
-      periodLabel: getPeriodRangeLabel(DEFAULT_PERIOD),
-    };
-  }
-  return context;
 };
