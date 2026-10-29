@@ -17,6 +17,12 @@
       "expo-document-picker",
       "expo-sharing",
       "expo-status-bar"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7dc1aec0-72f8-49c1-b384-e4ae0c5b41cc"
+      }
+    },
+    "owner": "saifurrehman2004"
   }
 }

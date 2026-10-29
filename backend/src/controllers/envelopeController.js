@@ -134,8 +134,16 @@ const updateEnvelope = async (req, res) => {
 
 const transferFunds = async (req, res) => {
   try {
-    const { type = 'expense', fromId, toId, amount } = req.body;
+    const {
+      type = 'expense',
+      fromId,
+      toId,
+      amount,
+      purpose,
+      date,
+    } = req.body;
     const parsedAmount = Number(amount);
+    const transferDate = date ? new Date(date) : new Date();
 
     if (type !== 'income' && type !== 'expense') {
       return res.status(400).json({ message: 'Transfer type must be income or expense' });
@@ -148,6 +156,9 @@ const transferFunds = async (req, res) => {
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({ message: 'Transfer amount must be a positive number' });
+    }
+    if (!Number.isFinite(transferDate.getTime())) {
+      return res.status(400).json({ message: 'Transfer date is invalid' });
     }
 
     const Model = type === 'income' ? IncomeEnvelope : Envelope;
@@ -210,8 +221,10 @@ const transferFunds = async (req, res) => {
         fromName: source.name,
         toName: destination.name,
         amount: parsedAmount,
-        purpose: `${source.name} → ${destination.name}`,
-        date: new Date(),
+        purpose: typeof purpose === 'string' && purpose.trim()
+          ? purpose.trim()
+          : `${source.name} → ${destination.name}`,
+        date: transferDate,
       });
 
       return res.status(200).json({
@@ -223,6 +236,10 @@ const transferFunds = async (req, res) => {
       await Model.findOneAndUpdate(
         { _id: fromId, userId: req.user._id },
         { $inc: { allocatedAmount: parsedAmount } },
+      );
+      await Model.findOneAndUpdate(
+        { _id: toId, userId: req.user._id },
+        { $inc: { allocatedAmount: -parsedAmount } },
       );
       throw error;
     }
@@ -279,10 +296,14 @@ const updateTransferFunds = async (req, res) => {
     const oldAmount = Number(transfer.amount) || 0;
 
     const { type = oldType, fromId = oldFromId, toId = oldToId, amount } = req.body;
-    const parsedAmount = Number(amount);
+    const newType = type;
+    const parsedAmount = amount === undefined ? oldAmount : Number(amount);
     const newFromId = String(fromId);
     const newToId = String(toId);
 
+    if (newType !== 'income' && newType !== 'expense') {
+      return res.status(400).json({ message: 'Transfer type must be income or expense' });
+    }
     if (!newFromId || !newToId) {
       return res.status(400).json({ message: 'Source and destination envelopes are required' });
     }
@@ -292,8 +313,16 @@ const updateTransferFunds = async (req, res) => {
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({ message: 'Transfer amount must be a positive number' });
     }
+    const transferDate = req.body.date === undefined
+      ? new Date(transfer.date)
+      : new Date(req.body.date);
+    if (!Number.isFinite(transferDate.getTime())) {
+      return res.status(400).json({ message: 'Transfer date is invalid' });
+    }
+    if (req.body.purpose !== undefined && typeof req.body.purpose !== 'string') {
+      return res.status(400).json({ message: 'Transfer purpose must be a string' });
+    }
 
-    const newType = type || oldType;
     const oldModel = oldType === 'income' ? IncomeEnvelope : Envelope;
     const newModel = newType === 'income' ? IncomeEnvelope : Envelope;
 
@@ -336,8 +365,10 @@ const updateTransferFunds = async (req, res) => {
       transfer.fromName = source?.name || transfer.fromName || '';
       transfer.toName = destination?.name || transfer.toName || '';
       transfer.amount = parsedAmount;
-      transfer.purpose = req.body.purpose || `${transfer.fromName || 'Envelope'} → ${transfer.toName || 'Destination'}`;
-      transfer.date = req.body.date ? new Date(req.body.date) : new Date();
+      transfer.purpose = req.body.purpose === undefined
+        ? transfer.purpose
+        : req.body.purpose.trim() || `${transfer.fromName || 'Envelope'} → ${transfer.toName || 'Destination'}`;
+      transfer.date = transferDate;
       await transfer.save();
 
       return res.status(200).json({
@@ -413,8 +444,10 @@ const updateTransferFunds = async (req, res) => {
     transfer.fromName = source.name;
     transfer.toName = destination.name;
     transfer.amount = parsedAmount;
-    transfer.purpose = req.body.purpose || `${source.name} → ${destination.name}`;
-    transfer.date = req.body.date ? new Date(req.body.date) : new Date();
+    transfer.purpose = req.body.purpose === undefined
+      ? transfer.purpose
+      : req.body.purpose.trim() || `${source.name} → ${destination.name}`;
+    transfer.date = transferDate;
     await transfer.save();
 
     res.status(200).json({

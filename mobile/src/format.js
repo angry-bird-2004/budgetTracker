@@ -17,6 +17,16 @@ export const fromBaseAmount = (value, currency, rate) => {
   return currency === "USD" ? amount / (Number(rate) || 1) : amount;
 };
 
+export const getEditableTransactionAmount = (transaction) => {
+  const amount = Number(transaction.amount) || 0;
+  const taxAmount = Number(transaction.taxAmount) || 0;
+  return transaction.type === "expense" &&
+    (transaction.taxApplication || "exclusive") === "exclusive" &&
+    taxAmount > 0
+    ? amount - taxAmount
+    : amount;
+};
+
 export const formatMoney = (value, currency, rate) => {
   const amount = fromBaseAmount(value, currency, rate);
   const symbol = currency === "USD" ? "$" : "Rs ";
@@ -38,6 +48,54 @@ export const fromDateInput = (date) => {
   return new Date(year, month - 1, day, 12).toISOString();
 };
 
+export const isValidDateInput = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
+export const parseCsv = (content) => {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
+
+  const addField = () => {
+    row.push(value);
+    value = "";
+  };
+  const addRow = () => {
+    addField();
+    if (row.some((cell) => cell.trim())) rows.push(row);
+    row = [];
+  };
+
+  for (let index = 0; index < content.length; index += 1) {
+    const character = content[index];
+    if (character === '"') {
+      if (quoted && content[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === "," && !quoted) {
+      addField();
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && content[index + 1] === "\n") index += 1;
+      addRow();
+    } else {
+      value += character;
+    }
+  }
+
+  if (quoted) throw new Error("The selected CSV has an unclosed quoted field.");
+  if (value.length || row.length) addRow();
+  return rows;
+};
+
 export const toCsv = (rows, transfers = []) => {
   const headers = [
     "Id",
@@ -46,6 +104,9 @@ export const toCsv = (rows, transfers = []) => {
     "Title",
     "Amount",
     "Currency",
+    "TaxPercentage",
+    "TaxAmount",
+    "TaxApplication",
     "PaymentMethod",
     "Envelope",
     "IncomeSource",
@@ -59,6 +120,9 @@ export const toCsv = (rows, transfers = []) => {
     tx.title,
     tx.type === "income" ? tx.amount : -Math.abs(Number(tx.amount) || 0),
     "PKR",
+    tx.taxPercentage,
+    tx.taxAmount,
+    tx.taxApplication,
     tx.paymentMethod || "cash",
     typeof tx.envelopeId === "object" ? tx.envelopeId?.name : "",
     typeof tx.incomeSource === "object"
@@ -79,6 +143,9 @@ export const toCsv = (rows, transfers = []) => {
         `Transfer: ${source || "Source"} → ${destination || "Destination"}`,
         -amount,
         "PKR",
+        "",
+        "",
+        "",
         "transfer",
         transfer.type === "expense" ? source : "",
         transfer.type === "income" ? source : "",
@@ -91,6 +158,9 @@ export const toCsv = (rows, transfers = []) => {
         `Transfer: ${source || "Source"} → ${destination || "Destination"}`,
         amount,
         "PKR",
+        "",
+        "",
+        "",
         "transfer",
         transfer.type === "expense" ? destination : "",
         transfer.type === "income" ? destination : "",

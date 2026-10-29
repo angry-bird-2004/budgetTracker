@@ -54,6 +54,8 @@ export const financeApi = {
         ...(extras.type && extras.type !== "all" ? { type: extras.type } : {}),
         ...(extras.startDate ? { startDate: extras.startDate } : {}),
         ...(extras.endDate ? { endDate: extras.endDate } : {}),
+        ...(extras.envelopeId ? { envelopeId: extras.envelopeId } : {}),
+        ...(extras.incomeSource ? { incomeSource: extras.incomeSource } : {}),
       },
     }),
   allTransactions: async (period, extras = {}, limit = 100) => {
@@ -67,7 +69,7 @@ export const financeApi = {
       pages = Number(data.pages) || 1;
       if (data.totals) totals = data.totals;
       page += 1;
-    } while (page <= pages && page <= 50);
+    } while (page <= pages);
     return { transactions, totals };
   },
   createTransaction: (data) => api.post("/transactions", data),

@@ -27,6 +27,9 @@ import {
   formatMoney,
   fromBaseAmount,
   fromDateInput,
+  getEditableTransactionAmount,
+  isValidDateInput,
+  parseCsv,
   toBaseAmount,
   toCsv,
   toDateInput,
@@ -1347,6 +1350,11 @@ function AppContent() {
     await SecureStore.setItemAsync("budgetTrackerCurrency", nextCurrency);
   };
 
+  const changePeriod = (value) => {
+    setPeriod(value);
+    setPage(1);
+  };
+
   const openEntry = (kind, record = null, txType = "expense") => {
     if (kind === "expense-envelope" || kind === "income-envelope") {
       setEntry({
@@ -1383,7 +1391,11 @@ function AppContent() {
         ...freshEntry(kind),
         _id: record._id,
         title: record.title || "",
-        amount: fromBaseAmount(record.amount, currency, rate).toFixed(2),
+        amount: fromBaseAmount(
+          getEditableTransactionAmount(record),
+          currency,
+          rate,
+        ).toFixed(2),
         date: toDateInput(record.date),
         paymentMethod: record.paymentMethod || "cash",
         purpose: record.purpose || "",
@@ -1431,14 +1443,18 @@ function AppContent() {
       return runMutation(
         () =>
           entry._id
-            ? (income ? api.updateIncomeEnvelope(entry._id, { name, allocatedAmount: amount }) : api.updateEnvelope(entry._id, { name, allocatedAmount: amount }))
-            : (income ? api.createIncomeEnvelope({ name, allocatedAmount: amount }) : api.createEnvelope({ name, allocatedAmount: amount })),
+            ? (income ? financeApi.updateIncomeEnvelope(entry._id, { name, allocatedAmount: amount }) : financeApi.updateEnvelope(entry._id, { name, allocatedAmount: amount }))
+            : (income ? financeApi.createIncomeEnvelope({ name, allocatedAmount: amount }) : financeApi.createEnvelope({ name, allocatedAmount: amount })),
       );
     }
     if (entry.kind === "transfer") {
       const amount = toBaseAmount(entry.amount, currency, rate);
       if (!entry.fromId || !entry.toId || entry.fromId === entry.toId || !Number.isFinite(amount) || amount <= 0) {
         Alert.alert("Check the transfer", "Choose different source and destination envelopes and enter a positive amount.");
+        return;
+      }
+      if (entry.date && !isValidDateInput(entry.date)) {
+        Alert.alert("Check the transfer", "Enter a valid date in YYYY-MM-DD format.");
         return;
       }
       const data = {
@@ -1459,12 +1475,24 @@ function AppContent() {
       Alert.alert("Check the form", "Enter a title and a valid positive amount.");
       return;
     }
+    if (entry.date && !isValidDateInput(entry.date)) {
+      Alert.alert("Check the form", "Enter a valid date in YYYY-MM-DD format.");
+      return;
+    }
     if (!entry.incomeSource) {
       Alert.alert("Choose an income envelope", "Select the income envelope for this entry.");
       return;
     }
-    const taxPercent = isExpense && entry.taxPercentage ? Number(entry.taxPercentage) : 0;
-    let taxAmount = isExpense && entry.taxAmount ? toBaseAmount(entry.taxAmount, currency, rate) : 0;
+    const taxPercent = isExpense && entry.taxPercentage?.trim()
+      ? Number(entry.taxPercentage)
+      : 0;
+    let taxAmount = isExpense && entry.taxAmount?.trim()
+      ? toBaseAmount(entry.taxAmount, currency, rate)
+      : 0;
+    if (!Number.isFinite(taxPercent) || taxPercent < 0 || !Number.isFinite(taxAmount) || taxAmount < 0) {
+      Alert.alert("Check the tax details", "Enter valid non-negative tax values.");
+      return;
+    }
     if (isExpense && taxPercent > 0 && !taxAmount) taxAmount = amount * taxPercent / 100;
     const finalAmount =
       isExpense && entry.taxApplication === "exclusive" && taxAmount > 0
@@ -1542,35 +1570,45 @@ function AppContent() {
       });
       if (file.canceled || !file.assets?.[0]?.uri) return;
       const content = await FileSystem.readAsStringAsync(file.assets[0].uri);
-      const lines = content.split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) throw new Error("The selected CSV has no transaction rows.");
-      const parseLine = (line) => {
-        const cells = [];
-        let value = "";
-        let quoted = false;
-        for (let i = 0; i < line.length; i += 1) {
-          const char = line[i];
-          if (char === '"' && quoted && line[i + 1] === '"') { value += '"'; i += 1; }
-          else if (char === '"') quoted = !quoted;
-          else if (char === "," && !quoted) { cells.push(value); value = ""; }
-          else value += char;
-        }
-        cells.push(value);
-        return cells;
-      };
-      const headers = parseLine(lines[0]).map((header) =>
+      const rows = parseCsv(content);
+      if (rows.length < 2) throw new Error("The selected CSV has no transaction rows.");
+      const headers = rows[0].map((header) =>
         header.replace(/^\uFEFF/, "").trim().toLowerCase(),
       );
       const index = (name) => headers.indexOf(name.toLowerCase());
+      const requiredHeaders = ["title", "amount", "type"];
+      const missingHeaders = requiredHeaders.filter((name) => index(name) === -1);
+      if (missingHeaders.length) {
+        throw new Error(`The CSV is missing required columns: ${missingHeaders.join(", ")}.`);
+      }
+      const valueAt = (values, name) => {
+        const column = index(name);
+        return column === -1 ? "" : values[column] || "";
+      };
       let created = 0;
-      for (const line of lines.slice(1)) {
-        const values = parseLine(line);
-        const title = values[index("title")] || "";
-        const amount = Number(values[index("amount")]);
-        const type = (values[index("type")] || "").toLowerCase();
+      for (const [rowIndex, values] of rows.slice(1).entries()) {
+        const title = valueAt(values, "title");
+        const amount = Number(valueAt(values, "amount"));
+        const type = valueAt(values, "type").toLowerCase();
         if (!title.trim() || !Number.isFinite(amount) || amount === 0 || !["income", "expense"].includes(type)) continue;
-        const sourceName = values[index("incomesource")] || "";
-        const envelopeName = values[index("envelope")] || "";
+        const date = valueAt(values, "date");
+        if (date && !isValidDateInput(date)) {
+          throw new Error(`Invalid date on CSV row ${rowIndex + 2}.`);
+        }
+        const taxPercentageValue = valueAt(values, "taxpercentage");
+        const taxAmountValue = valueAt(values, "taxamount");
+        const taxApplicationValue = valueAt(values, "taxapplication").toLowerCase();
+        const taxPercentage = taxPercentageValue === "" ? null : Number(taxPercentageValue);
+        const taxAmount = taxAmountValue === "" ? null : Number(taxAmountValue);
+        if (
+          (taxPercentage !== null && (!Number.isFinite(taxPercentage) || taxPercentage < 0)) ||
+          (taxAmount !== null && (!Number.isFinite(taxAmount) || taxAmount < 0)) ||
+          (taxApplicationValue && !["exclusive", "inclusive"].includes(taxApplicationValue))
+        ) {
+          throw new Error(`Invalid tax details on CSV row ${rowIndex + 2}.`);
+        }
+        const sourceName = valueAt(values, "incomesource");
+        const envelopeName = valueAt(values, "envelope");
         const incomeSource = incomeEnvelopes.find(
           (envelope) =>
             envelope.name.toLowerCase() === sourceName.toLowerCase() ||
@@ -1585,11 +1623,14 @@ function AppContent() {
           title: title.trim(),
           amount: Math.abs(amount),
           type,
-          paymentMethod: values[index("paymentmethod")] || "cash",
-          purpose: values[index("purpose")] || undefined,
-          date: values[index("date")] || undefined,
-          incomeSource: incomeSource?._id,
-          envelopeId: envelope?._id,
+          paymentMethod: valueAt(values, "paymentmethod") || "cash",
+          purpose: valueAt(values, "purpose") || undefined,
+          date: date || undefined,
+          incomeSource: incomeSource?._id || null,
+          envelopeId: envelope?._id || null,
+          taxPercentage,
+          taxAmount,
+          taxApplication: taxApplicationValue || null,
         };
         const id = values[index("id")] || "";
         if (/^[a-f\d]{24}$/i.test(id)) {
@@ -1628,7 +1669,7 @@ function AppContent() {
             <HomeScreen
               user={user}
               period={period}
-              setPeriod={setPeriod}
+              setPeriod={changePeriod}
               totals={totals}
               envelopes={envelopes}
               incomeEnvelopes={incomeEnvelopes}
@@ -1646,7 +1687,7 @@ function AppContent() {
           {() => (
             <ActivityScreen
               period={period}
-              setPeriod={(value) => { setPeriod(value); setPage(1); }}
+              setPeriod={changePeriod}
               transactions={activityTransactions}
               transfers={transfers}
               envelopes={envelopes}

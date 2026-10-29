@@ -56,10 +56,33 @@ the backend must listen on an interface reachable from the LAN. Do not use
 production deployments and keep the API host out of source control.
 
 `EXPO_PUBLIC_API_URL` is bundled into the application and is not a secret.
+The Android release profile below specifies the public backend URL.
 Authentication tokens are stored in the platform secure store.
 
 If sign-in reports a network error, confirm `http://<API host>:5000/api/health`
 opens from the phone's browser, then restart Expo with `npx expo start --clear`.
+
+## Build an Android APK to share
+
+The internal APK profile uses the deployed backend at
+`https://budget-tracker-jx22.vercel.app/api`. Confirm that
+`https://budget-tracker-jx22.vercel.app/api/health` responds before building.
+
+Install or sign in to an Expo account, then run:
+
+```sh
+cd mobile
+npx eas-cli login
+npx eas-cli init
+npx eas-cli build --platform android --profile preview
+```
+
+`eas init` links this app to your Expo account. The first build may ask to
+configure Android signing; accept the prompts. When the cloud build finishes,
+open its build page and share the APK download link. Recipients can download the
+APK on Android and install it, allowing installation from that source if
+Android asks. The APK contains the public API URL, so future backend URL changes
+require a new build.
 
 ## Verify the mobile bundle
 
