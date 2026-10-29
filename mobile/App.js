@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -148,6 +149,8 @@ function Field({
         keyboardType={keyboardType || "default"}
         multiline={multiline}
         secureTextEntry={secureTextEntry}
+        returnKeyType={multiline ? "default" : "done"}
+        onSubmitEditing={multiline ? undefined : Keyboard.dismiss}
         autoCapitalize={
           secureTextEntry || keyboardType === "email-address" ? "none" : "sentences"
         }
@@ -288,11 +291,12 @@ function LoginScreen({ onLogin, onRegister, busy, error }) {
     <SafeAreaView style={styles.authScreen}>
       <ExpoStatusBar style="light" />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.authKeyboard}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           contentContainerStyle={styles.authContent}
         >
           <View style={styles.brandMark}>
@@ -1085,8 +1089,14 @@ function EntryModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.modalBackdrop}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={Keyboard.dismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss keyboard"
+        />
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{displayTitle}</Text>
@@ -1094,7 +1104,11 @@ function EntryModal({
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.modalBody}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            contentContainerStyle={styles.modalBody}
+          >
             {isEnvelope ? (
               <>
                 <Field label="Envelope name" value={entry.title} onChangeText={(value) => set("title", value)} placeholder="e.g. Groceries" />
@@ -1911,7 +1925,7 @@ const styles = StyleSheet.create({
   errorBanner: { backgroundColor: COLORS.redWash, padding: 9 },
   errorBannerText: { color: COLORS.redText, fontSize: 11, textAlign: "center" },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.65)" },
-  modalCard: { maxHeight: "92%", minHeight: "45%", backgroundColor: COLORS.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: COLORS.border, paddingBottom: Platform.OS === "ios" ? 22 : 8 },
+  modalCard: { width: "100%", maxWidth: 560, maxHeight: "92%", alignSelf: "center", backgroundColor: COLORS.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: COLORS.border, paddingBottom: Platform.OS === "ios" ? 22 : 8 },
   modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 18, paddingBottom: 13, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: "800" },
   closeText: { color: COLORS.muted, fontSize: 20, padding: 4 },

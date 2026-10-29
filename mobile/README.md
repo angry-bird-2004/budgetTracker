@@ -62,6 +62,29 @@ Authentication tokens are stored in the platform secure store.
 If sign-in reports a network error, confirm `http://<API host>:5000/api/health`
 opens from the phone's browser, then restart Expo with `npx expo start --clear`.
 
+## Publish mobile app updates without sharing another APK
+
+The app uses EAS Update for JavaScript and UI changes. Build and install a new
+APK once to enable over-the-air updates in the installed app:
+
+```sh
+cd mobile
+npx eas-cli build --platform android --profile preview
+```
+
+After that build is installed, publish JavaScript or UI changes to the same
+`preview` channel:
+
+```sh
+npx eas-cli update --channel preview --message "Describe the changes"
+```
+
+The installed app checks for updates when it starts. An update that downloads
+while the app is running is applied the next time it is opened. Make sure
+`EXPO_PUBLIC_API_URL` in the environment used to publish matches the backend
+URL configured in the APK. Changes to native code, native dependencies, or
+native app configuration still require building and installing a new APK.
+
 ## Build an Android APK to share
 
 The internal APK profile uses the deployed backend at
