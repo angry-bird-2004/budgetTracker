@@ -73,6 +73,23 @@ const SettingsPage = () => {
         <Navbar />
         <SettingsHeader />
 
+        <SettingsCard
+          eyebrow="Mobile app"
+          title="Use Budget Tracker on Android"
+          description="Download the latest APK and install it on your Android phone or tablet."
+        >
+          <a
+            href="https://github.com/angry-bird-2004/budgetTracker/releases/latest/download/budget-tracker.apk"
+            className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+            aria-label="Download Budget Tracker for Android"
+          >
+            Download Android app (.apk)
+          </a>
+          <p className="mt-3 text-xs text-slate-500">
+            Android may ask you to allow app installs from your browser.
+          </p>
+        </SettingsCard>
+
         {loading ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">
             Loading settings...

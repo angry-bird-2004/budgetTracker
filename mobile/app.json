@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Budget Tracker",
+    "slug": "budget-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "updates": {
+      "url": "https://u.expo.dev/7dc1aec0-72f8-49c1-b384-e4ae0c5b41cc",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.budgettracker.mobile"
+    },
+    "android": {
+      "package": "com.budgettracker.mobile",
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-document-picker",
+      "expo-sharing",
+      "expo-status-bar"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7dc1aec0-72f8-49c1-b384-e4ae0c5b41cc"
+      }
+    },
+    "owner": "saifurrehman2004"
+  }
+}

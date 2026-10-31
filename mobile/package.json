@@ -1,0 +1,37 @@
+{
+  "name": "budget-tracker-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "node --test src/*.test.js"
+  },
+  "dependencies": {
+    "@react-navigation/bottom-tabs": "^7.4.0",
+    "@react-navigation/native": "^7.1.17",
+    "axios": "^1.12.2",
+    "expo": "~58.0.21",
+    "expo-document-picker": "~58.0.4",
+    "expo-file-system": "~58.0.13",
+    "expo-secure-store": "~58.0.2",
+    "expo-sharing": "~58.0.21",
+    "expo-status-bar": "~58.0.4",
+    "expo-updates": "~58.0.19",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.0"
+  },
+  "overrides": {
+    "expo": {
+      "@expo/cli": {
+        "zod": "^4.6.7"
+      }
+    }
+  }
+}
