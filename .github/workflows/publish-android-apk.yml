@@ -1,0 +1,63 @@
+name: Publish Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "mobile-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish_android_apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Build Android APK
+        working-directory: mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
+
+      - name: Download APK
+        env:
+          BUILD_JSON: ${{ runner.temp }}/eas-build.json
+          APK_PATH: ${{ runner.temp }}/budget-tracker.apk
+        run: |
+          apk_url="$(node -e 'const fs = require("node:fs"); const value = JSON.parse(fs.readFileSync(process.env.BUILD_JSON, "utf8")); const build = Array.isArray(value) ? value[0] : value; const url = build?.artifacts?.buildUrl ?? build?.artifacts?.applicationArchiveUrl; if (!url) throw new Error("EAS build did not return an APK download URL"); process.stdout.write(url);')"
+          curl --fail --location --retry 3 "$apk_url" --output "$APK_PATH"
+          test -s "$APK_PATH"
+
+      - name: Choose release tag
+        id: release
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            tag_name="$GITHUB_REF_NAME"
+          else
+            tag_name="android-build-$GITHUB_RUN_NUMBER"
+          fi
+          echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
+
+      - name: Publish APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag_name }}
+          name: Budget Tracker Android ${{ steps.release.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: ${{ runner.temp }}/budget-tracker.apk
