@@ -79,7 +79,7 @@ const SettingsPage = () => {
           description="Download the latest APK and install it on your Android phone or tablet."
         >
           <a
-            href="https://github.com/angry-bird-2004/budgetTracker/releases/latest/download/budget-tracker.apk"
+            href="https://expo.dev/artifacts/eas/TGbU7SIs1F824MXRxQKWp_JCrXU5F9b_gOn1eLS0MFE.apk"
             className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
             aria-label="Download Budget Tracker for Android"
           >
