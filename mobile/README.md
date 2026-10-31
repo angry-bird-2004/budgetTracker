@@ -91,6 +91,17 @@ The internal APK profile uses the deployed backend at
 `https://budget-tracker-jx22.vercel.app/api`. Confirm that
 `https://budget-tracker-jx22.vercel.app/api/health` responds before building.
 
+The website's Settings page downloads the APK from the latest public GitHub
+Release at
+`https://github.com/angry-bird-2004/budgetTracker/releases/latest/download/budget-tracker.apk`.
+To publish or update that download, add an Expo access token as the repository's
+`EXPO_TOKEN` Actions secret, then run the **Publish Android APK** GitHub Actions
+workflow. It builds the `preview` APK with EAS and uploads it to a new latest
+GitHub Release. The repository must be public for anyone to download the APK.
+The download URL becomes available after the first workflow run. Android users
+can open the download on their phone and install the APK, allowing installs
+from their browser if Android asks.
+
 Install or sign in to an Expo account, then run:
 
 ```sh
